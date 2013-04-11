@@ -31,3 +31,5 @@ wat
   - collect ISP DNS from all over the world
     - act as both forwarder and recursive dns
     - history IP database
+  - DNS over HTTP
+    - find the quickest record using TCP PING in ajax
