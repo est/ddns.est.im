@@ -23,9 +23,10 @@ wat
     - every query is logged
   - experimental R/W Python Dict Notation Format as "Zone File"
     - functions are also values (lambdas)
-    - basically dict()
-    - deep mergable
-    - iterative parsing streams
+    - basically dict() but ordered
+    - reference pointers e.g. parent, sibling, etc.
+    - deep traversal mergable
+    - iterative/partial parsing for streams
     - differential transport in incremental data
   - collect ISP DNS from all over the world
     - act as both forwarder and recursive dns
