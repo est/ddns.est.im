@@ -1,0 +1,2 @@
+https://gist.github.com/gleicon/1074227
+http://www.isnowfy.com/introduction-to-gevent/
