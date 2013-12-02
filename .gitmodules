@@ -1,0 +1,3 @@
+[submodule "godns"]
+	path = godns
+	url = https://github.com/miekg/dns.git
