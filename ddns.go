@@ -9,8 +9,9 @@ import (
 func main() {
     var buf [512]byte
     svr_addr, _ := net.ResolveUDPAddr("udp", "0:15353")
-    // up_addr, _ := net.ResolveUDPAddr("udp", "8.8.8.8:53")
-    server, err := net.ListenUDP("udp", svr_addr)
+    up_addr, _ := net.ResolveUDPAddr("udp", "8.8.8.8:53")
+    server, err1 := net.ListenUDP("udp", svr_addr)
+    up_server, err2 := net.DialUDP("UDP", nil, up_addr)
     fmt.Println("server ok == ", err==nil)
     c, addr, err := server.ReadFrom(buf[:512])
     data := buf[:c]
