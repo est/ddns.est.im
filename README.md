@@ -33,3 +33,10 @@ wat
     - history IP database
   - DNS over HTTP
     - find the quickest record using TCP PING in ajax
+
+notes
+----
+
+ - How to tell Windows & *nix:
+   - Windows will lookup PTR
+   - ttl maybe?
