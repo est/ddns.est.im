@@ -14,6 +14,7 @@ var RRTYPE = map[uint16]string{
     0x01: "A",
     0x02: "NS",
     0x05: "CNAME",
+    0x06: "SOA",
     0x0C: "PTR",
     0x0F: "MX",
     0x10: "TXT",
@@ -21,7 +22,8 @@ var RRTYPE = map[uint16]string{
     0x33: "SRV",
     0xFF: "ANY",
 }
-var Uint16 = binary.BigEndian.Uint16
+var Uint16BE = binary.BigEndian.Uint16
+var Uint16LE = binary.LittleEndian.Uint16
 
 
 func showQuery(data[]byte) {
@@ -38,13 +40,17 @@ func showQuery(data[]byte) {
         dl = data[di]
     }
     di += 1 // skip \0 termin for domain names
-    dt := RRTYPE[Uint16(data[di:di+2])]
+    dt := Uint16BE(data[di:di+2])
+    dts, ok := RRTYPE[dt]
+    if !ok {
+        dts = fmt.Sprintf("(%d)", dt)
+    }
     fs := strings.Join(ds[:li], ".") // full string
-    fmt.Print("Q: ", fs, " IN ", dt, " ")
+    fmt.Print("Q: ", fs, " ", dts, " ")
     // @ToDO: check all DNS has exactly 1 query?
 
     // answer count
-    ac := Uint16(data[6:8]) + Uint16(data[8:10]) + Uint16(data[10:12])
+    ac := Uint16BE(data[6:8]) + Uint16BE(data[8:10]) + Uint16BE(data[10:12])
     if ac > 0 {
         di += 4 // skip question TYPE, CLASS
         // as := make([]string, 31) // 255 bytes hard coded again!
@@ -52,15 +58,20 @@ func showQuery(data[]byte) {
         // http://www.ccs.neu.edu/home/amislove/teaching/cs4700/fall09/handouts/project1-primer.pdf
         fmt.Println("RR:", ac, " ")
         for ac > 0 {
-            if Uint16(data[di:di+2]) & 0xC000 == 0xC000 {
-                dt = RRTYPE[Uint16(data[di+2:di+4])]
+            if Uint16BE(data[di:di+2]) & 0xC000 == 0xC000 {
+                dt := Uint16BE(data[di+2:di+4])
+                fmt.Println(dt)
+                dts, ok := RRTYPE[dt]
+                if !ok {
+                    dts = fmt.Sprintf("(%d)", dt)
+                }
                 dttl := binary.BigEndian.Uint32(data[di+6:di+10])
                 di += 10
-                adl := int(Uint16(data[di:di+2])) // answer data length
+                adl := int(Uint16BE(data[di:di+2])) // answer data length
                 di += 2
                 ad := data[di:di+adl] // answer  data
                 di += adl
-                fmt.Println("  ", dt, "\t", dttl, "\t", ad)
+                fmt.Println("  ", dts, "\t", dttl, "\t", ad)
             } else {
                 fmt.Println("  Can't parse RDATA yet: ", data[di:di+2])
                 break

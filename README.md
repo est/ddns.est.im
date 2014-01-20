@@ -34,9 +34,20 @@ wat
   - DNS over HTTP
     - find the quickest record using TCP PING in ajax
 
+
+depends
+-------
+
+  GOPATH=$PWD go get github.com/mattn/go-sqlite3
+
 notes
 ----
 
  - How to tell Windows & *nix:
    - Windows will lookup PTR
    - ttl maybe?
+ - LMDB
+   - http://symas.com/mdb/
+   - lmdb.readthedocs.org 
+   - gitorious.org/mdb/mdb
+   - http://godoc.org/github.com/szferi/gomdb
