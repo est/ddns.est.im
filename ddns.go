@@ -52,15 +52,15 @@ func showQuery(data[]byte) {
         // http://www.ccs.neu.edu/home/amislove/teaching/cs4700/fall09/handouts/project1-primer.pdf
         fmt.Println("RR:", ac, " ")
         for ac > 0 {
-            if Uint16(data[di:di+2]) & 0xC000 > 0 {
+            if Uint16(data[di:di+2]) & 0xC000 == 0xC000 {
                 dt = RRTYPE[Uint16(data[di+2:di+4])]
                 dttl := binary.BigEndian.Uint32(data[di+6:di+10])
                 di += 10
-                al := int(Uint16(data[di:di+2]))
+                adl := int(Uint16(data[di:di+2])) // answer data length
                 di += 2
-                as := data[di:di+al]
-                di += al
-                fmt.Println("  ", dt, "\t", dttl, "\t", as)
+                ad := data[di:di+adl] // answer  data
+                di += adl
+                fmt.Println("  ", dt, "\t", dttl, "\t", ad)
             } else {
                 fmt.Println("  Can't parse RDATA yet: ", data[di:di+2])
                 break
