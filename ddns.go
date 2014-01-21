@@ -5,7 +5,9 @@ import (
     "net"
     "os"
     "strings"
+    "time"
     "encoding/binary"
+    "database/sql"
     _ "github.com/mattn/go-sqlite3"
 )
 
@@ -25,9 +27,10 @@ var RRTYPE = map[uint16]string{
 }
 var Uint16BE = binary.BigEndian.Uint16
 var Uint16LE = binary.LittleEndian.Uint16
-var sqliteDb = sql.Open("sqlite3", "./cache.db")
 
-func showQuery(data[]byte) {
+var db *sql.DB // global var for db connection
+
+func showQuery(data []byte) {
     di := 12 // cursor index, hard coded C0 0C (offset=12)
     dl := data[di] // Cursor data length
     ds := make([]string, 127) // data string array for output. Max 127 subdomains because 255 bytes total
@@ -46,12 +49,13 @@ func showQuery(data[]byte) {
     if !ok {
         dts = fmt.Sprintf("(%d)", dt)
     }
-    fs := strings.Join(ds[:li], ".") // full string
+    ds = ds[:li]
+    fs := strings.Join(ds, ".") // full string
     fmt.Print("Q: ", fs, " ", dts, " ")
     // @ToDO: check all DNS has exactly 1 query?
     
     // answer count
-    ac := Uint16BE(data[6:8]) + Uint16BE(data[8:10]) + Uint16BE(data[10:12])
+    ac := Uint16BE(data[6:8]) // + Uint16BE(data[8:10]) + Uint16BE(data[10:12])
     if ac > 0 {
         di += 4 // skip question TYPE, CLASS
         // as := make([]string, 31) // 255 bytes hard coded again!
@@ -61,7 +65,6 @@ func showQuery(data[]byte) {
         for ac > 0 {
             if Uint16BE(data[di:di+2]) & 0xC000 == 0xC000 {
                 dt := Uint16BE(data[di+2:di+4])
-                fmt.Println(dt)
                 dts, ok := RRTYPE[dt]
                 if !ok {
                     dts = fmt.Sprintf("(%d)", dt)
@@ -73,6 +76,7 @@ func showQuery(data[]byte) {
                 ad := data[di:di+adl] // answer  data
                 di += adl
                 fmt.Println("  ", dts, "\t", dttl, "\t", ad)
+                go updateRecord(ds, dttl, dt, ad)
             } else {
                 fmt.Println("  Can't parse RDATA yet: ", data[di:di+2])
                 break
@@ -83,7 +87,63 @@ func showQuery(data[]byte) {
     fmt.Println(" ")
 }
 
+
+func updateRecord(name []string, ttl uint32, type_id uint16, value []byte) {
+    // name_ra is reversed in DB for faster prefix lookup
+    l := len(name) 
+    name_ra := make([]string, l)
+    for i,j := 0,l-1; j>=0; i,j=i+1,j-1 {
+        name_ra[i] = name[j]
+    }
+    name_r := strings.Join(name_ra, " ")
+    // fmt.Println("wtf", strings.Join(name_ra, " "), time.Now().Unix()+int64(ttl), type_id, value )
+    sql := "INSERT OR IGNORE INTO record (name_r, ts_expires, type_id, value) VALUES (?,?,?,?);"
+    expire := time.Now().Unix()+int64(ttl)
+    res, _ := db.Exec(sql, name_r, expire, type_id, value)
+    ra, _ := res.RowsAffected()
+    if ra == 0 {
+        sql := "UPDATE record SET ts_expires=?, ts_accessed=>? where name_r=? AND value=?"
+        db.Exec(sql, expire, time.Now(), name_r, value)
+    }
+}
+
 func main() {
+
+    // setup sqlite cache.db
+    // no modify time. Append only
+    var err error
+    db, err = sql.Open("sqlite3", "./cache.db")
+    if err != nil {
+        fmt.Println(err)
+    }
+    defer db.Close()
+
+    sql := `
+    CREATE TABLE IF NOT EXISTS record (
+      id INTEGER not null primary key, 
+      name_r TEXT,
+      ts_added TEXT DEFAULT CURRENT_TIMESTAMP,
+      ts_expires INTEGER,
+      ts_accessed TEXT DEFAULT CURRENT_TIMESTAMP,
+      type_id INTEGER,
+      value BLOB
+    ); `
+    _, err = db.Exec(sql)
+    if err != nil {
+        fmt.Println(err, sql)
+        return
+    }
+    sql = `CREATE UNIQUE INDEX IF NOT EXISTS name_value ON record (name_r COLLATE NOCASE, value COLLATE NOCASE);`
+    _, err = db.Exec(sql)
+    if err != nil {
+        fmt.Println(err, sql)
+        return
+    }
+
+
+
+    fmt.Println("Start server...")
+    // start server, loop forever
     var buf [512]byte
     var up_buf [512]byte
     localServerAddr, _ := net.ResolveUDPAddr("udp", "0:53")
@@ -104,7 +164,6 @@ func main() {
                 fmt.Println("Connect to upstream failed", err)
                 // @ToDo: how to handle this? use stale cache?
             }
-
             upConn.Write(dataReq)
             c, _ = upConn.Read(up_buf[:512])
             dataRsp := up_buf[:c]
