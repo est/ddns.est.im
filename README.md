@@ -51,3 +51,5 @@ notes
    - lmdb.readthedocs.org 
    - gitorious.org/mdb/mdb
    - http://godoc.org/github.com/szferi/gomdb
+ - sqlite
+   - https://github.com/mattn/go-sqlite3/blob/master/_example/simple/simple.go

@@ -6,6 +6,7 @@ import (
     "os"
     "strings"
     "encoding/binary"
+    _ "github.com/mattn/go-sqlite3"
 )
 
 // http://technet.microsoft.com/en-us/library/dd197470(v=ws.10).aspx
@@ -24,7 +25,7 @@ var RRTYPE = map[uint16]string{
 }
 var Uint16BE = binary.BigEndian.Uint16
 var Uint16LE = binary.LittleEndian.Uint16
-
+var sqliteDb = sql.Open("sqlite3", "./cache.db")
 
 func showQuery(data[]byte) {
     di := 12 // cursor index, hard coded C0 0C (offset=12)
@@ -48,7 +49,7 @@ func showQuery(data[]byte) {
     fs := strings.Join(ds[:li], ".") // full string
     fmt.Print("Q: ", fs, " ", dts, " ")
     // @ToDO: check all DNS has exactly 1 query?
-
+    
     // answer count
     ac := Uint16BE(data[6:8]) + Uint16BE(data[8:10]) + Uint16BE(data[10:12])
     if ac > 0 {
