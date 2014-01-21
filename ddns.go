@@ -28,28 +28,39 @@ var RRTYPE = map[uint16]string{
 var Uint16BE = binary.BigEndian.Uint16
 var Uint16LE = binary.LittleEndian.Uint16
 
+
+// zone file RR format 
+// *.example.com.   3600 IN  MX 10 host1.example.com.
+
+
 var db *sql.DB // global var for db connection
 
-func showQuery(data []byte) {
-    di := 12 // cursor index, hard coded C0 0C (offset=12)
-    dl := data[di] // Cursor data length
-    ds := make([]string, 127) // data string array for output. Max 127 subdomains because 255 bytes total
-    li := 0 // loop index
-    for dl>0 {
-        diNext := di+int(dl)+1 // 1 is the dl itself
-        s:= string(data[di+1:diNext])
-        ds[li] = s
-        li++
-        di = diNext
-        dl = data[di]
+func parseQuery(data []byte)  (int, []string, uint16) {
+    readerIndex := 12 // hard coded offset=12
+    readerLength := data[readerIndex] // reader data length
+    nameArray := make([]string, 127) // array of domain name for output. Max 127 subdomains because 255 bytes total
+    nameParts := 0 // number of subdomains
+    for readerLength>0 {
+        readerIndexNext := readerIndex+int(readerLength)+1 // 1 is the readerLength itself
+        s:= string(data[readerIndex+1:readerIndexNext])
+        nameArray[nameParts] = s
+        nameParts++
+        readerIndex = readerIndexNext
+        readerLength = data[readerIndex]
     }
-    di += 1 // skip \0 termin for domain names
-    dt := Uint16BE(data[di:di+2])
+    readerIndex += 1 // skip \0 termin for domain names
+    nameTypeId := Uint16BE(data[readerIndex:readerIndex+2])
+    return readerIndex, nameArray[:nameParts], nameTypeId
+}
+
+func showQuery(data []byte) {
+    // reader index, domain name array, domain name type
+    di, ds, dt := parseQuery(data)
+
     dts, ok := RRTYPE[dt]
     if !ok {
         dts = fmt.Sprintf("(%d)", dt)
     }
-    ds = ds[:li]
     fs := strings.Join(ds, ".") // full string
     fmt.Print("Q: ", fs, " ", dts, " ")
     // @ToDO: check all DNS has exactly 1 query?
@@ -88,23 +99,35 @@ func showQuery(data []byte) {
 }
 
 
-func updateRecord(name []string, ttl uint32, type_id uint16, value []byte) {
+func updateRecord(name []string, ttl uint32, typeId uint16, value []byte) {
     // name_ra is reversed in DB for faster prefix lookup
     l := len(name) 
-    name_ra := make([]string, l)
-    for i,j := 0,l-1; j>=0; i,j=i+1,j-1 {
-        name_ra[i] = name[j]
+    nameInvArray := make([]string, l)
+    for i, v := range name {
+        nameInvArray[l-i-1] = v
     }
-    name_r := strings.Join(name_ra, " ")
-    // fmt.Println("wtf", strings.Join(name_ra, " "), time.Now().Unix()+int64(ttl), type_id, value )
-    sql := "INSERT OR IGNORE INTO record (name_r, ts_expires, type_id, value) VALUES (?,?,?,?);"
-    expire := time.Now().Unix()+int64(ttl)
-    res, _ := db.Exec(sql, name_r, expire, type_id, value)
+    nameInv := strings.Join(nameInvArray, " ")
+    sql := "INSERT OR IGNORE INTO record (name_r, ttl, type_id, value) VALUES (?,?,?,?);"
+    expire := int64(ttl)
+    res, _ := db.Exec(sql, nameInv, expire, typeId, value)
     ra, _ := res.RowsAffected()
-    if ra == 0 {
-        sql := "UPDATE record SET ts_expires=?, ts_accessed=>? where name_r=? AND value=?"
-        db.Exec(sql, expire, time.Now(), name_r, value)
+    rowId, _ := res.LastInsertId()
+    now := time.Now().Unix()
+    if rowId > 0 {
+        sql := "UPDATE record SET time_accessed=>? where id=?"
+        db.Exec(sql, now, rowId)
     }
+    if ra == 0 {
+        sql := "UPDATE record SET ttl=max(ttl, ?), time_accessed=>? where name_r=? AND type_id=? AND value=?"
+        db.Exec(sql, expire, now, nameInv, typeId, value)
+    }
+}
+
+
+func getRecord(data []byte) []byte {
+    // readerIndex, nameArray, nameType := parseQuery(data)
+    // res, _ = db.Exec("SELECT name_r, ttl")
+    return data
 }
 
 func main() {
@@ -118,34 +141,32 @@ func main() {
     }
     defer db.Close()
 
-    sql := `
+    sqls := []string{`
     CREATE TABLE IF NOT EXISTS record (
       id INTEGER not null primary key, 
       name_r TEXT,
-      ts_added TEXT DEFAULT CURRENT_TIMESTAMP,
-      ts_expires INTEGER,
-      ts_accessed TEXT DEFAULT CURRENT_TIMESTAMP,
+      ttl INTEGER,
       type_id INTEGER,
-      value BLOB
-    ); `
-    _, err = db.Exec(sql)
-    if err != nil {
-        fmt.Println(err, sql)
-        return
-    }
-    sql = `CREATE UNIQUE INDEX IF NOT EXISTS name_value ON record (name_r COLLATE NOCASE, value COLLATE NOCASE);`
-    _, err = db.Exec(sql)
-    if err != nil {
-        fmt.Println(err, sql)
-        return
+      value BLOB, 
+      time_added TEXT DEFAULT CURRENT_TIMESTAMP,
+      time_accessed INTEGER
+    ); `, `
+    CREATE UNIQUE INDEX IF NOT EXISTS name_value ON record (name_r COLLATE NOCASE, type_id, value COLLATE NOCASE);
+    `}
+    for _, sql := range sqls {
+        _, err = db.Exec(sql)
+        if err != nil {
+            fmt.Println(err, sql)
+            return
+        }
     }
 
 
 
     fmt.Println("Start server...")
     // start server, loop forever
-    var buf [512]byte
-    var up_buf [512]byte
+    var bufLocal [512]byte
+    var bufUp [512]byte
     localServerAddr, _ := net.ResolveUDPAddr("udp", "0:53")
     localServer, err := net.ListenUDP("udp", localServerAddr)
     if err != nil {
@@ -154,8 +175,8 @@ func main() {
     }
     for{
             
-        c, addr, _ := localServer.ReadFrom(buf[:512])
-        dataReq := buf[:c]
+        c, addr, _ := localServer.ReadFrom(bufLocal[:512])
+        dataReq := bufLocal[:c]
         // @ToDo: check flag is 0X0100
         showQuery(dataReq)
         go func(){
@@ -165,8 +186,8 @@ func main() {
                 // @ToDo: how to handle this? use stale cache?
             }
             upConn.Write(dataReq)
-            c, _ = upConn.Read(up_buf[:512])
-            dataRsp := up_buf[:c]
+            c, _ = upConn.Read(bufUp[:512])
+            dataRsp := bufUp[:c]
             localServer.WriteTo(dataRsp, addr)
             // @ToDo: check response flag is 0x8180. 0x8183 = NXDOMAIN
             showQuery(dataRsp)
