@@ -125,8 +125,12 @@ func updateRecord(name []string, ttl uint32, typeId uint16, value []byte) {
 
 
 func getRecord(data []byte) []byte {
-    // readerIndex, nameArray, nameType := parseQuery(data)
-    // res, _ = db.Exec("SELECT name_r, ttl")
+    readerIndex, nameArray, nameType := parseQuery(data)
+    sql := "SELECT ttl, value FROM record WHERE name_r=? and type_id=?"
+    nameInvArray := make([]string, len(nameArray))
+    res, _ := db.Exec(sql, strings.Join(nameInvArray, " "), nameType)
+    _, _ = res, readerIndex
+    // @ToDo: parse row one by one
     return data
 }
 
