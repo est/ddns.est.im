@@ -70,7 +70,7 @@ func showQuery(data []byte) {
     // answer count
     ac := Uint16BE(data[6:8]) // + Uint16BE(data[8:10]) + Uint16BE(data[10:12])
     if ac > 0 {
-        di += 4 // skip question TYPE, CLASS
+         // di += 4 don't need to skip question TYPE, CLASS, because fixed.
         // as := make([]string, 31) // 255 bytes hard coded again!
         // qRef := []byte {0xC0, 0x0C}
         // http://www.ccs.neu.edu/home/amislove/teaching/cs4700/fall09/handouts/project1-primer.pdf
@@ -201,7 +201,7 @@ func getRecord(data []byte) []byte {
             rwIndex += len(rr)
             copy(rsp[rwIndex:], value)
             rwIndex += len(value)
-            fmt.Println("SQL: ", rr, value, rwIndex, nameArray, ttl, tsAccessed, value)
+            fmt.Println("SQL: ", nameArray, ttl, tsAccessed, value)
     }
     if err := rows.Err(); err != nil {
             log.Fatal(err)
