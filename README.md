@@ -66,7 +66,7 @@ Not easy. http://stackoverflow.com/a/7511635/41948
     SELECT old.id, old.name_r, new.ttl, old.type_id, old.value
     FROM ( SELECT
        'com reddit'    AS name_r, 
-       123           AS ttl,
+       1234           AS ttl,
        1  as type_id,
        X'173E6D57' as value
     ) AS new
@@ -74,3 +74,4 @@ Not easy. http://stackoverflow.com/a/7511635/41948
        SELECT id, name_r, type_id, value
        FROM record
     ) AS old ON new.name_r = old.name_r AND new.type_id = old.type_id AND new.value = old.value;
+

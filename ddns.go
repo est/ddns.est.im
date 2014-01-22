@@ -109,32 +109,40 @@ func updateRecord(name []string, ttl uint32, typeId uint16, value []byte) {
     }
     nameInv := strings.Join(nameInvArray, " ")
 
-
+    // upsert hack 
+    // for fields (id, name_r, ttl, type_id, value, time_added, time_accessed)
+    // http://stackoverflow.com/a/7511635/41948
     sql := `
-    INSERT OR REPLACE INTO record (id, name_r, ttl, type_id, value, time_accessed)
+    INSERT OR REPLACE INTO record 
     SELECT 
         old.id, 
         COALESCE(new.name_r, old.name_r), 
         MAX(COALESCE(old.ttl, 0), new.ttl), 
         COALESCE(new.type_id, old.type_id), 
         COALESCE(new.value, old.value), 
-        new.time_accessed 
-    FROM ( SELECT
+        COALESCE(old.time_added, new.time_added), 
+        new.time_accessed
+    FROM ( SELECT 
+        NULL AS id, 
         ? AS name_r, 
         ? AS ttl, 
         ? AS type_id, 
         ? AS value, 
-        datetime('now') as time_accessed
+        datetime('now') AS time_added, 
+        strftime('%s','now') AS time_accessed 
     ) AS new
     LEFT JOIN (
-        SELECT id, name_r, ttl, type_id, value
-        FROM record
+        SELECT id, name_r, ttl, type_id, value, time_added, time_accessed 
+        FROM record WHERE 
+            name_r = ? AND 
+            type_id = ? AND 
+            value = ? 
     ) AS old ON 
         new.name_r = old.name_r AND 
         new.type_id = old.type_id AND 
         new.value = old.value;
     `
-    res, err := db.Exec(sql, nameInv, ttl, typeId, value)
+    res, err := db.Exec(sql, nameInv, ttl, typeId, value, nameInv, typeId, value)
 
     if err != nil {
             log.Fatal("INSERT FAIL ", err)
