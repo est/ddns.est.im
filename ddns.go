@@ -1,11 +1,12 @@
 package main
 
 import (
+    "log"
     "fmt"
     "net"
     "os"
     "strings"
-    "time"
+    _ "time"
     "encoding/binary"
     "database/sql"
     _ "github.com/mattn/go-sqlite3"
@@ -107,30 +108,87 @@ func updateRecord(name []string, ttl uint32, typeId uint16, value []byte) {
         nameInvArray[l-i-1] = v
     }
     nameInv := strings.Join(nameInvArray, " ")
-    sql := "INSERT OR IGNORE INTO record (name_r, ttl, type_id, value) VALUES (?,?,?,?);"
-    expire := int64(ttl)
-    res, _ := db.Exec(sql, nameInv, expire, typeId, value)
-    ra, _ := res.RowsAffected()
-    rowId, _ := res.LastInsertId()
-    now := time.Now().Unix()
-    if rowId > 0 {
-        sql := "UPDATE record SET time_accessed=>? where id=?"
-        db.Exec(sql, now, rowId)
+
+
+    sql := `
+    INSERT OR REPLACE INTO record (id, name_r, ttl, type_id, value, time_accessed)
+    SELECT 
+        old.id, 
+        COALESCE(new.name_r, old.name_r), 
+        MAX(COALESCE(old.ttl, 0), new.ttl), 
+        COALESCE(new.type_id, old.type_id), 
+        COALESCE(new.value, old.value), 
+        new.time_accessed 
+    FROM ( SELECT
+        ? AS name_r, 
+        ? AS ttl, 
+        ? AS type_id, 
+        ? AS value, 
+        datetime('now') as time_accessed
+    ) AS new
+    LEFT JOIN (
+        SELECT id, name_r, ttl, type_id, value
+        FROM record
+    ) AS old ON 
+        new.name_r = old.name_r AND 
+        new.type_id = old.type_id AND 
+        new.value = old.value;
+    `
+    res, err := db.Exec(sql, nameInv, ttl, typeId, value)
+
+    if err != nil {
+            log.Fatal("INSERT FAIL ", err)
     }
-    if ra == 0 {
-        sql := "UPDATE record SET ttl=max(ttl, ?), time_accessed=>? where name_r=? AND type_id=? AND value=?"
-        db.Exec(sql, expire, now, nameInv, typeId, value)
-    }
+
+    ra, err := res.RowsAffected()
+    log.Println("SQL", ra)
+
+    // if err != nil {
+    //         log.Fatal(err)
+    // }
+
+    // rowId, err := res.LastInsertId()
+
+    // if err != nil {
+    //         log.Fatal(err)
+    // }
+    // now := time.Now().Unix()
+    // if rowId > 0 {
+    //     sql := "UPDATE record SET time_accessed=>? where id=?"
+    //     db.Exec(sql, now, rowId)
+    // }
+    // if ra == 0 {
+    //     sql := "UPDATE record SET ttl=max(ttl, ?), time_accessed=? where name_r=? AND type_id=? AND value=?"
+    //     _, err = db.Exec(sql, ttl, now, nameInv, typeId, value)
+    //     fmt.Println("ha", err)
+    // }
 }
 
 
 func getRecord(data []byte) []byte {
     readerIndex, nameArray, nameType := parseQuery(data)
+    l := len(nameArray)
+    nameInvArray := make([]string, l)
+    for i, v := range nameArray {
+        nameInvArray[l-i-1] = v
+    }
     sql := "SELECT ttl, value FROM record WHERE name_r=? and type_id=?"
-    nameInvArray := make([]string, len(nameArray))
-    res, _ := db.Exec(sql, strings.Join(nameInvArray, " "), nameType)
-    _, _ = res, readerIndex
-    // @ToDo: parse row one by one
+    rows, err := db.Query(sql, strings.Join(nameInvArray, " "), nameType)
+    if err != nil {
+            log.Fatal(err)
+    }
+    for rows.Next() {
+            var ttl uint16
+            var value []byte
+            if err := rows.Scan(&ttl, &value); err != nil {
+                    log.Fatal(err)
+            }
+            fmt.Println("SQL: ", readerIndex, nameArray, ttl, value)
+    }
+    if err := rows.Err(); err != nil {
+            log.Fatal(err)
+    }
+    rows.Close()
     return data
 }
 
@@ -139,7 +197,7 @@ func main() {
     // setup sqlite cache.db
     // no modify time. Append only
     var err error
-    db, err = sql.Open("sqlite3", "./cache.db")
+    db, err = sql.Open("sqlite3", "file:cache.db?cache=shared&mode=rwc")
     if err != nil {
         fmt.Println(err)
     }
@@ -155,7 +213,7 @@ func main() {
       time_added TEXT DEFAULT CURRENT_TIMESTAMP,
       time_accessed INTEGER
     ); `, `
-    CREATE UNIQUE INDEX IF NOT EXISTS name_value ON record (name_r COLLATE NOCASE, type_id, value COLLATE NOCASE);
+    CREATE UNIQUE INDEX IF NOT EXISTS name_value ON record (name_r COLLATE NOCASE, type_id, value COLLATE BINARY);
     `}
     for _, sql := range sqls {
         _, err = db.Exec(sql)
@@ -183,6 +241,7 @@ func main() {
         dataReq := bufLocal[:c]
         // @ToDo: check flag is 0X0100
         showQuery(dataReq)
+        getRecord(dataReq)
         go func(){
             upConn, err := net.Dial("udp", "8.8.8.8:53")
             if err != nil {

@@ -53,3 +53,24 @@ notes
    - http://godoc.org/github.com/szferi/gomdb
  - sqlite
    - https://github.com/mattn/go-sqlite3/blob/master/_example/simple/simple.go
+
+
+
+UPSERT in SQLite
+
+Not easy. http://stackoverflow.com/a/7511635/41948
+
+    // insert into record (id, name_r, type_id, value) values (1, 'com reddit', 1, X'173E6D57');
+
+    INSERT OR REPLACE INTO record (id, name_r, ttl, type_id, value)
+    SELECT old.id, old.name_r, new.ttl, old.type_id, old.value
+    FROM ( SELECT
+       'com reddit'    AS name_r, 
+       123           AS ttl,
+       1  as type_id,
+       X'173E6D57' as value
+    ) AS new
+    LEFT JOIN (
+       SELECT id, name_r, type_id, value
+       FROM record
+    ) AS old ON new.name_r = old.name_r AND new.type_id = old.type_id AND new.value = old.value;
