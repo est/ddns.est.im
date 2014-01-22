@@ -190,7 +190,7 @@ func getRecord(data []byte) []byte {
                     log.Fatal(err)
             }
             rrCount++
-            // var w bytes.Buffer
+            // construct Resource Record
             rr := make([]byte, 12)
             binary.BigEndian.PutUint16(rr[0:2], 0xC00C) // RR compression
             binary.BigEndian.PutUint16(rr[2:4], nameTypeId)// 2 bytes for type ID
@@ -262,7 +262,12 @@ func main() {
         dataReq := bufLocal[:c]
         // @ToDo: check flag is 0X0100
         showQuery(dataReq)
-        go func(){
+        go func(addr net.Addr){
+            fmt.Println("da?")
+            dataRsp := getRecord(dataReq)
+            fmt.Println("da?")
+            localServer.WriteTo(dataRsp, addr)
+            fmt.Println("da?")
             // @ToDo: timeout based on transaction ID instead of sequencial.
             upConn, err := net.Dial("udp", "8.8.8.8:53")
             if err != nil {
@@ -271,13 +276,10 @@ func main() {
             }
             upConn.Write(dataReq)
             c, _ = upConn.Read(bufUp[:512])
-            dataRsp := bufUp[:c]
-            showQuery(dataRsp)
-            dataRsp = getRecord(dataReq)
-            localServer.WriteTo(dataRsp, addr)
+            dataRsp = bufUp[:c]
             // @ToDo: check response flag is 0x8180. 0x8183 = NXDOMAIN
             showQuery(dataRsp)
-        }()
+        }(addr)
     }
 }
 
