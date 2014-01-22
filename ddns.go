@@ -1,6 +1,7 @@
 package main
 
 import (
+    // "bytes"
     "log"
     "fmt"
     "net"
@@ -27,7 +28,6 @@ var RRTYPE = map[uint16]string{
     0xFF: "ANY",
 }
 var Uint16BE = binary.BigEndian.Uint16
-var Uint16LE = binary.LittleEndian.Uint16
 
 
 // zone file RR format 
@@ -51,6 +51,7 @@ func parseQuery(data []byte)  (int, []string, uint16) {
     }
     readerIndex += 1 // skip \0 termin for domain names
     nameTypeId := Uint16BE(data[readerIndex:readerIndex+2])
+    readerIndex += 4 // to the end
     return readerIndex, nameArray[:nameParts], nameTypeId
 }
 
@@ -151,53 +152,66 @@ func updateRecord(name []string, ttl uint32, typeId uint16, value []byte) {
     ra, err := res.RowsAffected()
     log.Println("SQL", ra)
 
-    // if err != nil {
-    //         log.Fatal(err)
-    // }
-
     // rowId, err := res.LastInsertId()
-
-    // if err != nil {
-    //         log.Fatal(err)
-    // }
     // now := time.Now().Unix()
-    // if rowId > 0 {
-    //     sql := "UPDATE record SET time_accessed=>? where id=?"
-    //     db.Exec(sql, now, rowId)
-    // }
-    // if ra == 0 {
-    //     sql := "UPDATE record SET ttl=max(ttl, ?), time_accessed=? where name_r=? AND type_id=? AND value=?"
-    //     _, err = db.Exec(sql, ttl, now, nameInv, typeId, value)
-    //     fmt.Println("ha", err)
-    // }
 }
 
 
 func getRecord(data []byte) []byte {
-    readerIndex, nameArray, nameType := parseQuery(data)
+    // make response
+    rsp := make([]byte, 512)
+    copy(rsp, data)
+
+    // query db
+    rwIndex, nameArray, nameTypeId := parseQuery(data)
     l := len(nameArray)
     nameInvArray := make([]string, l)
     for i, v := range nameArray {
         nameInvArray[l-i-1] = v
     }
-    sql := "SELECT ttl, value FROM record WHERE name_r=? and type_id=?"
-    rows, err := db.Query(sql, strings.Join(nameInvArray, " "), nameType)
+    sql := `
+    SELECT 
+        ttl, time_accessed, value 
+    FROM record 
+    WHERE 
+        name_r=? AND type_id=?
+    ORDER BY ttl DESC
+    `
+    rows, err := db.Query(sql, strings.Join(nameInvArray, " "), nameTypeId)
     if err != nil {
             log.Fatal(err)
     }
+    rrCount := 0
     for rows.Next() {
-            var ttl uint16
+            var ttl uint32
+            var tsAccessed uint64
             var value []byte
-            if err := rows.Scan(&ttl, &value); err != nil {
+            if err := rows.Scan(&ttl, &tsAccessed, &value); err != nil {
                     log.Fatal(err)
             }
-            fmt.Println("SQL: ", readerIndex, nameArray, ttl, value)
+            rrCount++
+            // var w bytes.Buffer
+            rr := make([]byte, 12)
+            binary.BigEndian.PutUint16(rr[0:2], 0xC00C) // RR compression
+            binary.BigEndian.PutUint16(rr[2:4], nameTypeId)// 2 bytes for type ID
+            binary.BigEndian.PutUint16(rr[4:6], 0x0001) // class = IN
+            binary.BigEndian.PutUint32(rr[6:10], ttl) // 4 bytes for TTL
+            binary.BigEndian.PutUint16(rr[10:12], uint16(len(value))) // 2 bytes for value length
+            copy(rsp[rwIndex:], rr)
+            rwIndex += len(rr)
+            copy(rsp[rwIndex:], value)
+            rwIndex += len(value)
+            fmt.Println("SQL: ", rr, value, rwIndex, nameArray, ttl, tsAccessed, value)
     }
     if err := rows.Err(); err != nil {
             log.Fatal(err)
     }
     rows.Close()
-    return data
+    if rrCount > 0 {
+        binary.BigEndian.PutUint16(rsp[2:4], 0x8180)
+        binary.BigEndian.PutUint16(rsp[6:8], uint16(rrCount))
+    }
+    return rsp[0:rwIndex]
 }
 
 func main() {
@@ -244,13 +258,12 @@ func main() {
         os.Exit(1)
     }
     for{
-            
         c, addr, _ := localServer.ReadFrom(bufLocal[:512])
         dataReq := bufLocal[:c]
         // @ToDo: check flag is 0X0100
         showQuery(dataReq)
-        getRecord(dataReq)
         go func(){
+            // @ToDo: timeout based on transaction ID instead of sequencial.
             upConn, err := net.Dial("udp", "8.8.8.8:53")
             if err != nil {
                 fmt.Println("Connect to upstream failed", err)
@@ -259,6 +272,8 @@ func main() {
             upConn.Write(dataReq)
             c, _ = upConn.Read(bufUp[:512])
             dataRsp := bufUp[:c]
+            showQuery(dataRsp)
+            dataRsp = getRecord(dataReq)
             localServer.WriteTo(dataRsp, addr)
             // @ToDo: check response flag is 0x8180. 0x8183 = NXDOMAIN
             showQuery(dataRsp)
