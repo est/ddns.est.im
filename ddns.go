@@ -159,6 +159,18 @@ func updateRecord(name []string, ttl uint32, typeId uint16, value []byte) {
 }
 
 
+func doQuery(tid uint16, data []byte){
+    var bufUp [512]byte
+
+    upConn, err := net.Dial("udp", "8.8.8.8:53")
+    if err != nil {
+        fmt.Println("Connect to upstream failed", err)
+        // @ToDo: how to handle this? use stale cache?
+    }
+    upConn.Write(data)
+    c, _ := upConn.Read(bufUp[:512])
+    tidMap[tid] <- bufUp[:c]
+}
 
 func getRecord(data []byte) []byte {
     // make response
@@ -216,26 +228,15 @@ func getRecord(data []byte) []byte {
         binary.BigEndian.PutUint16(rsp[2:4], 0x8180)
         binary.BigEndian.PutUint16(rsp[6:8], uint16(rrCount))
     } else {
-        go func(){
-            var bufUp [512]byte
-            upConn, err := net.Dial("udp", "8.8.8.8:53")
-            if err != nil {
-                fmt.Println("Connect to upstream failed", err)
-                // @ToDo: how to handle this? use stale cache?
-            }
-            upConn.Write(data)
-            c, _ := upConn.Read(bufUp[:512])
-            vc := make(chan []byte, 1)
-            vc <- bufUp[:c]
-            delete(tidMap, tid)
-            tidMap[tid] = vc
-        }()
-        fmt.Println("SQL FAIL, going network")
+        delete(tidMap, tid)
+        tidMap[tid] = make(chan []byte, 2)
+        go doQuery(tid, data)
         select {
-        case rsp = <-tidMap[tid]:
+        case rsp = <- tidMap[tid]:
             rwIndex = len(rsp)
-            log.Println("Relay packet! for ", tid)
+            log.Println("Relay packet for ", tid)
         case <-time.After(4 * time.Second):
+            log.Println("Relay packet timeout ", tid)
             binary.BigEndian.PutUint16(rsp[2:4], 0x8183)
         }
     }
@@ -276,6 +277,7 @@ func main() {
 
     // setup tid map
     tidMap = make(map[uint16] chan []byte)
+    // tidMap[0] = make(chan []byte)
 
 
 
@@ -291,6 +293,7 @@ func main() {
     for{
         c, addr, _ := localServer.ReadFrom(bufLocal[:512])
         dataReq := bufLocal[:c]
+        log.Println("Got query")
         showQuery(dataReq)
         go func(addr net.Addr){
             dataRsp := getRecord(dataReq)
@@ -299,6 +302,7 @@ func main() {
             // @ToDo: timeout based on transaction ID instead of sequencial.
             showQuery(dataRsp)
         }(addr)
+        // _ = addr
     }
 }
 
