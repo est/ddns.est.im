@@ -75,3 +75,84 @@ Not easy. http://stackoverflow.com/a/7511635/41948
        FROM record
     ) AS old ON new.name_r = old.name_r AND new.type_id = old.type_id AND new.value = old.value;
 
+
+INSERT OR REPLACE INTO record 
+SELECT 
+    old.id, 
+    COALESCE(new.name_r, old.name_r), 
+    MAX(COALESCE(old.ttl, 0), new.ttl), 
+    COALESCE(new.type_id, old.type_id), 
+    COALESCE(new.value, old.value), 
+    COALESCE(old.time_added, new.time_added), 
+    new.time_accessed 
+FROM ( SELECT
+    'com reddit' AS name_r, 
+    1234 AS ttl, 
+    1 AS type_id, 
+    X'173E6D57' AS value, 
+    datetime('now') AS time_added, 
+    datetime('now') AS time_accessed 
+) AS new
+LEFT JOIN (
+    SELECT id, name_r, ttl, type_id, value, time_added
+    FROM record
+) AS old ON 
+    new.name_r = old.name_r AND 
+    new.type_id = old.type_id AND 
+    new.value = old.value;
+
+    
+        old.id, 
+        COALESCE(new.name_r, old.name_r), 
+        MAX(COALESCE(old.ttl, 0), new.ttl), 
+        COALESCE(new.type_id, old.type_id), 
+        COALESCE(new.value, old.value), 
+        COALESCE(old.time_added, new.time_added), 
+
+
+package main
+
+import "fmt"
+
+func main() {
+  cb := make(chan int, 1)
+        tidMap := map[int] chan int{
+    1234: cb,
+  }
+  
+  tidMap[1234] <- 333
+  fmt.Println(<-tidMap[1234])
+  tidMap[1234] <- 111
+  tidMap[1234] <- 112         // blocks
+  fmt.Println(<-tidMap[1234])
+  fmt.Println(<-tidMap[1231]) // blocks
+
+
+
+  cb := make(chan int, 1)
+  cb <- 1111
+  tidMap := map[int] chan int{}
+  tidMap[1234] = cb
+  fmt.Println(<-tidMap[1234])
+  tidMap[1234] <- 111
+  fmt.Println(<-tidMap[1234])
+
+}
+
+
+
+
+
+
+CNAME cache
+
+0000   00 03 81 80 00 01 00 07 00 00 00 00 0a 75 75 75  .............uuu
+0010   75 31 32 33 38 37 35 09 77 6f 72 64 70 72 65 73  u123875.wordpres
+0020   73 03 63 6f 6d 00 00 01 00 01 c0 0c 00 05 00 01  s.com...........
+0030   00 00 38 40 00 05 02 6c 62 c0 17 c0 36 00 01 00  ..8@...lb...6...
+0040   01 00 00 01 2c 00 04 4c 4a fe 7b c0 36 00 01 00  ....,..LJ.{.6...
+0050   01 00 00 01 2c 00 04 4c 4a fe 78 c0 36 00 01 00  ....,..LJ.x.6...
+0060   01 00 00 01 2c 00 04 42 9b 09 ee c0 36 00 01 00  ....,..B....6...
+0070   01 00 00 01 2c 00 04 c0 00 50 fa c0 36 00 01 00  ....,....P..6...
+0080   01 00 00 01 2c 00 04 42 9b 0b ee c0 36 00 01 00  ....,..B....6...
+0090   01 00 00 01 2c 00 04 c0 00 51 fa                 ....,....Q.

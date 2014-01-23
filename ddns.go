@@ -7,7 +7,7 @@ import (
     "net"
     "os"
     "strings"
-    _ "time"
+    "time"
     "encoding/binary"
     "database/sql"
     _ "github.com/mattn/go-sqlite3"
@@ -35,6 +35,7 @@ var Uint16BE = binary.BigEndian.Uint16
 
 
 var db *sql.DB // global var for db connection
+var tidMap map[uint16] chan []byte
 
 func parseQuery(data []byte)  (int, []string, uint16) {
     readerIndex := 12 // hard coded offset=12
@@ -58,13 +59,14 @@ func parseQuery(data []byte)  (int, []string, uint16) {
 func showQuery(data []byte) {
     // reader index, domain name array, domain name type
     di, ds, dt := parseQuery(data)
+    tid := Uint16BE(data[:2])
 
     dts, ok := RRTYPE[dt]
     if !ok {
         dts = fmt.Sprintf("(%d)", dt)
     }
     fs := strings.Join(ds, ".") // full string
-    fmt.Print("Q: ", fs, " ", dts, " ")
+    fmt.Print("Q: ", tid, fs, " ", dts, " ")
     // @ToDO: check all DNS has exactly 1 query?
     
     // answer count
@@ -157,10 +159,13 @@ func updateRecord(name []string, ttl uint32, typeId uint16, value []byte) {
 }
 
 
+
 func getRecord(data []byte) []byte {
     // make response
     rsp := make([]byte, 512)
     copy(rsp, data)
+    // transaction id
+    tid := Uint16BE(data[0:2])
 
     // query db
     rwIndex, nameArray, nameTypeId := parseQuery(data)
@@ -174,12 +179,12 @@ func getRecord(data []byte) []byte {
         ttl, time_accessed, value 
     FROM record 
     WHERE 
-        name_r=? AND type_id=?
+        name_r=? AND type_id=? AND ttl>0
     ORDER BY ttl DESC
     `
     rows, err := db.Query(sql, strings.Join(nameInvArray, " "), nameTypeId)
     if err != nil {
-            log.Fatal(err)
+            panic(err)
     }
     rrCount := 0
     for rows.Next() {
@@ -187,7 +192,7 @@ func getRecord(data []byte) []byte {
             var tsAccessed uint64
             var value []byte
             if err := rows.Scan(&ttl, &tsAccessed, &value); err != nil {
-                    log.Fatal(err)
+                    fmt.Println(err)
             }
             rrCount++
             // construct Resource Record
@@ -202,14 +207,36 @@ func getRecord(data []byte) []byte {
             copy(rsp[rwIndex:], value)
             rwIndex += len(value)
             fmt.Println("SQL: ", nameArray, ttl, tsAccessed, value)
-    }
+    }  
     if err := rows.Err(); err != nil {
-            log.Fatal(err)
+            panic(err)
     }
     rows.Close()
     if rrCount > 0 {
         binary.BigEndian.PutUint16(rsp[2:4], 0x8180)
         binary.BigEndian.PutUint16(rsp[6:8], uint16(rrCount))
+    } else {
+        go func(){
+            var bufUp [512]byte
+            upConn, err := net.Dial("udp", "8.8.8.8:53")
+            if err != nil {
+                fmt.Println("Connect to upstream failed", err)
+                // @ToDo: how to handle this? use stale cache?
+            }
+            upConn.Write(data)
+            c, _ := upConn.Read(bufUp[:512])
+            vc := make(chan []byte, 1)
+            vc <- bufUp[:c]
+            tidMap[tid] = vc
+        }()
+        fmt.Println("SQL FAIL, going network")
+        select {
+        case rsp = <-tidMap[tid]:
+            rwIndex = len(rsp)
+            log.Println("Relay packet! for ", tid)
+        case <-time.After(4 * time.Second):
+            binary.BigEndian.PutUint16(rsp[2:4], 0x8183)
+        }
     }
     return rsp[0:rwIndex]
 }
@@ -246,11 +273,14 @@ func main() {
     }
 
 
+    // setup tid map
+    tidMap = make(map[uint16] chan []byte)
+
+
 
     fmt.Println("Start server...")
     // start server, loop forever
     var bufLocal [512]byte
-    var bufUp [512]byte
     localServerAddr, _ := net.ResolveUDPAddr("udp", "0:53")
     localServer, err := net.ListenUDP("udp", localServerAddr)
     if err != nil {
@@ -260,24 +290,12 @@ func main() {
     for{
         c, addr, _ := localServer.ReadFrom(bufLocal[:512])
         dataReq := bufLocal[:c]
-        // @ToDo: check flag is 0X0100
         showQuery(dataReq)
         go func(addr net.Addr){
-            fmt.Println("da?")
             dataRsp := getRecord(dataReq)
-            fmt.Println("da?")
+            // @ToDo: handl NXDOMAIN or SERVER FAIL.
             localServer.WriteTo(dataRsp, addr)
-            fmt.Println("da?")
             // @ToDo: timeout based on transaction ID instead of sequencial.
-            upConn, err := net.Dial("udp", "8.8.8.8:53")
-            if err != nil {
-                fmt.Println("Connect to upstream failed", err)
-                // @ToDo: how to handle this? use stale cache?
-            }
-            upConn.Write(dataReq)
-            c, _ = upConn.Read(bufUp[:512])
-            dataRsp = bufUp[:c]
-            // @ToDo: check response flag is 0x8180. 0x8183 = NXDOMAIN
             showQuery(dataRsp)
         }(addr)
     }
