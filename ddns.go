@@ -236,7 +236,7 @@ func getRecord(data []byte) []byte {
             rwIndex = len(rsp)
             log.Println("Relay packet for ", tid)
         case <-time.After(4 * time.Second):
-            log.Println("Relay packet timeout ", tid)
+            log.Println("Relay packet timeout ", tid, " Use NXDOMAIN")
             binary.BigEndian.PutUint16(rsp[2:4], 0x8183)
         }
     }
