@@ -53,6 +53,9 @@ notes
    - http://godoc.org/github.com/szferi/gomdb
  - sqlite
    - https://github.com/mattn/go-sqlite3/blob/master/_example/simple/simple.go
+ - name 
+   - see 4.1.4. Message compression
+   - http://www.ietf.org/rfc/rfc1035.txt
 
 
 

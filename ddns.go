@@ -66,7 +66,7 @@ func showQuery(data []byte) {
         dts = fmt.Sprintf("(%d)", dt)
     }
     fs := strings.Join(ds, ".") // full string
-    fmt.Print("Q: ", tid, fs, " ", dts, " ")
+    fmt.Print("Q: tid=", tid, ". ",  fs, " ", dts, " ")
     // @ToDO: check all DNS has exactly 1 query?
     
     // answer count
