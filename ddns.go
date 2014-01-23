@@ -227,6 +227,7 @@ func getRecord(data []byte) []byte {
             c, _ := upConn.Read(bufUp[:512])
             vc := make(chan []byte, 1)
             vc <- bufUp[:c]
+            delete(tidMap, tid)
             tidMap[tid] = vc
         }()
         fmt.Println("SQL FAIL, going network")
