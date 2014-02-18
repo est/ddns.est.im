@@ -5,6 +5,7 @@ import (
     "log"
     "fmt"
     "net"
+    "encoding/binary"
 )
 
 
@@ -17,7 +18,10 @@ func main(){
         dataReq := bufLocal[:c]
         log.Println("Got Query", addr)
         go func(){
-            dataRsp :=  // @ToDo: NXDOMAIN
+            var dataRsp [c]byte
+            copy(dataRsp, dataReq)
+            // NXDOMAIN
+            binar.BigEndian.PutUint16(dataRsp[2:4], 0x8183)
             server.Writeln(dataRsp, addr)
         }
     }
