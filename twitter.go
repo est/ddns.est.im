@@ -3,26 +3,26 @@ package main
 
 import (
     "log"
-    "fmt"
+    // "fmt"
     "net"
     "encoding/binary"
 )
 
 
-func main(){
+func main() {
     var bufLocal [512]byte
-    serverAddr, _ := net.ResolveUDPAddr("udp", 0:53)
-    server, _ = net.ListenUDP("udp", serverAddr)
+    serverAddr, _ := net.ResolveUDPAddr("udp", "0:53")
+    server, _ := net.ListenUDP("udp", serverAddr)
     for {
-        c, addr := server.ReadFrom(bufLocal[:512])
+        c, addr, _ := server.ReadFrom(bufLocal[:512])
         dataReq := bufLocal[:c]
-        log.Println("Got Query", addr)
+        log.Println("Got Query", addr, dataReq[0:1])
         go func(){
-            var dataRsp [c]byte
-            copy(dataRsp, dataReq)
+            dataRsp := bufLocal[:c]
+            // copy(dataRsp[:c], dataReq[:c])
             // NXDOMAIN
-            binar.BigEndian.PutUint16(dataRsp[2:4], 0x8183)
-            server.Writeln(dataRsp, addr)
-        }
+            binary.BigEndian.PutUint16(dataRsp[2:4], 0x8183)
+            server.WriteTo(dataRsp, addr)
+        }()
     }
 }
