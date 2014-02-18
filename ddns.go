@@ -228,7 +228,8 @@ func getRecord(data []byte) []byte {
         binary.BigEndian.PutUint16(rsp[2:4], 0x8180)
         binary.BigEndian.PutUint16(rsp[6:8], uint16(rrCount))
     } else {
-        delete(tidMap, tid)
+        // @ToDO: better key, like src port.
+        delete(tidMap, tid) 
         tidMap[tid] = make(chan []byte, 2)
         go doQuery(tid, data)
         select {
