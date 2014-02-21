@@ -3,3 +3,4 @@ http://www.isnowfy.com/introduction-to-gevent/
 
 
 GOPATH=$PWD go get github.com/mrjones/oauth
+GOPATH=$PWD go get github.com/miekg/dns
