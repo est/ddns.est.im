@@ -16,7 +16,7 @@ func main() {
     for {
         c, addr, _ := server.ReadFrom(bufLocal[:512])
         dataReq := bufLocal[:c]
-        log.Println("Got Query", addr, dataReq[0:1])
+        log.Println("Got Query", addr, "tid=", binary.BigEndian.Uint16(dataReq[0:2]))
         go func(){
             dataRsp := bufLocal[:c]
             // copy(dataRsp[:c], dataReq[:c])
