@@ -78,10 +78,9 @@ func main() {
                 binary.BigEndian.PutUint16(dataRsp[6:8], 1)
 
                 twitterName := parseName(dataReq)
-                tweet := getTwitter(twitterName)
-                tweetData := []byte(tweet) // assume UTF8
-                tweetLength := len(tweetData)
                 fmt.Println(twitterName)
+                tweetData := getTwitter(twitterName) // could be `printf` in bash
+                tweetLength := len(tweetData)
 
                 dataAns := []byte{
                     0xC0, 0x0C, // original name
@@ -99,7 +98,7 @@ func main() {
     }
 }
 
-func getTwitter(userName string) string {
+func getTwitter(userName string) []byte {
     c := oauth.NewConsumer(
         "ARtsaTvMriWxoq5tu2Zw", // consumerKey,
         "5LsCecr6Jb2G59Tl1qR9xinFAkB4MsnHKK5j0sGnu0", // consumerSecret,
@@ -125,20 +124,21 @@ func getTwitter(userName string) string {
     defer response.Body.Close()
     if err != nil {
         log.Println(err)
-        return ""
+        return make([]byte, 0)
     }
 
     byt, err := ioutil.ReadAll(response.Body)
 
     var dat []map[string]interface{}
     if err := json.Unmarshal(byt, &dat); err != nil {
-        log.Println(err)
-        return ""
+        log.Println("json1", err)
+        return make([]byte, 0)
     }
     s, ok := dat[0]["text"].(string)
     if ok == false{
-        log.Println(err)
-        return ""
+        log.Println("json2", err)
+        return make([]byte, 0)
     }
-    return(s)
+    b, err := json.Marshal(s)
+    return b
 }
