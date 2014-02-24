@@ -78,6 +78,9 @@ func main() {
                 binary.BigEndian.PutUint16(dataRsp[6:8], 1)
 
                 twitterName := parseName(dataReq)
+                tweet := getTwitter(twitterName)
+                tweetData := []byte(tweet) // assume UTF8
+                tweetLength := len(tweetData)
                 fmt.Println(twitterName)
 
                 dataAns := []byte{
@@ -85,11 +88,12 @@ func main() {
                     0x00, 0x10, // TXT
                     0x00, 0x01, // class
                     0x00, 0x00, 0x0e, 0x10, // ttl == 3600
-                    0x00, 0x02, // length
-                    0x01,
-                    'h',
+                    0x00, 0x00, // length, placeholder
                 }
-                server.WriteTo(append(dataRsp, dataAns...), addr)
+                binary.BigEndian.PutUint16(dataAns[10:12], uint16(tweetLength+1))
+                dataAns = append(dataAns, byte(tweetLength))
+                dataRsp = append(dataRsp, dataAns...)
+                server.WriteTo( append(dataRsp, tweetData...), addr)
             }
         }()
     }
@@ -112,23 +116,29 @@ func getTwitter(userName string) string {
     }
 
     response, err := c.Get(
-        "https://api.twitter.com/1.1/statuses/home_timeline.json", // API URL 
-        map[string]string{"count": "1"},
+        "https://api.twitter.com/1.1/statuses/user_timeline.json", // API URL 
+        map[string]string{
+            "count": "1",
+            "screen_name": userName,
+        },
         &at)
     defer response.Body.Close()
     if err != nil {
-        log.Fatal(err)
+        log.Println(err)
+        return ""
     }
 
     byt, err := ioutil.ReadAll(response.Body)
 
     var dat []map[string]interface{}
     if err := json.Unmarshal(byt, &dat); err != nil {
-        panic(err)
+        log.Println(err)
+        return ""
     }
     s, ok := dat[0]["text"].(string)
     if ok == false{
-        panic(s)
+        log.Println(err)
+        return ""
     }
     return(s)
 }
