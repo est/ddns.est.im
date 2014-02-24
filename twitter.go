@@ -139,6 +139,7 @@ func getTwitter(userName string) []byte {
         log.Println("json2", err)
         return make([]byte, 0)
     }
-    b, err := json.Marshal(s)
-    return b
+    // b, err := json.Marshal(s)
+    fmt.Println("Tweet: ", s)
+    return []byte(s)
 }
