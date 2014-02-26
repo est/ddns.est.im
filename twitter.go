@@ -144,20 +144,24 @@ func main() {
         c, addr, _ := server.ReadFrom(bufLocal[:512])
         dataReq := bufLocal[:c]
         f, _ := server.File()
-        fd := int(f.Fd())
+        fd := int(f.Fd())-2
+        f.Close()
         // this get the server TTL
         // ttl, _ := syscall.GetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_TTL)
-        syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_RECVTTL, 1)
+        err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_RECVTTL, 1)
+        if err != nil {
+            log.Panic()
+        }
 
         // see msg_control/cmsghdr from `man 2  recvmsg`
+        cmsg := make([]byte, 32)
         oob := make([]byte, 32) // actually 16
-        _, oobn, _, _, _ := syscall.Recvmsg(fd, nil, oob, 0)
+        _, oobn, _, _, _ := syscall.Recvmsg(fd, cmsg, oob, 0)
         ttl := binary.LittleEndian.Uint32(oob[12:16])
         log.Printf(
             "Q: %v xid=%v fd=%v ttl=%v\n", 
             addr, binary.BigEndian.Uint16(dataReq[0:2]), fd, ttl)
         fmt.Println(oob[:oobn])
-        f.Close()
         go func(){
             dataRsp := bufLocal[:c]
             if false {
