@@ -14,3 +14,9 @@ print r.recv(512)
 print r.getsockopt(socket.IPPROTO_IP, socket.IP_TTL)
 print s.getsockopt(socket.IPPROTO_IP, socket.IP_TTL)
 
+
+
+# https://groups.google.com/forum/#!topic/golang-nuts/--8LqUiUfJ0
+# http://manpages.ubuntu.com/manpages/trusty/en/man4/ip.4.html
+# http://code.google.com/p/go/source/browse/ipv4/sockopt_unix.go?repo=net
+# http://stackoverflow.com/a/9237137/41948

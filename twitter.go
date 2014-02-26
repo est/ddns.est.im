@@ -7,6 +7,7 @@ import (
     "io/ioutil"
     _"bytes"
     "strings"
+    "syscall"
     "net"
     "encoding/binary"
     "encoding/json"
@@ -61,33 +62,9 @@ func parseName(input []byte) string {
 }
 
 func formatName(input []byte) []byte {
-
+    return nil
 }
 
-func main() {
-    var bufLocal [512]byte
-    serverAddr, _ := net.ResolveUDPAddr("udp", "0:53")
-    server, _ := net.ListenUDP("udp", serverAddr)
-    for {
-        c, addr, _ := server.ReadFrom(bufLocal[:512])
-        dataReq := bufLocal[:c]
-        log.Println("Got Query", addr, "tid=", binary.BigEndian.Uint16(dataReq[0:2]))
-        go func(){
-            dataRsp := bufLocal[:c]
-            if false {
-                binary.BigEndian.PutUint16(dataRsp[2:4], 0x8183)
-                server.WriteTo(dataRsp, addr)
-            } else {
-                twitterName := parseName(dataReq)
-                fmt.Println(twitterName)
-                tweetData := getTwitter(twitterName) // could be `printf` in bash
-                _ = tweetData
-                dataRsp = setAnswer(dataRsp, []byte{0xc2,0xcb,0xc3,0xde}, 0x05)
-                server.WriteTo(dataRsp, addr)
-            }
-        }()
-    }
-}
 
 func setAnswer(dataRsp []byte, data []byte, type_ uint16) []byte{
     binary.BigEndian.PutUint16(dataRsp[2:4], 0x8180)
@@ -97,7 +74,7 @@ func setAnswer(dataRsp []byte, data []byte, type_ uint16) []byte{
 
     dataAns := []byte{
         0xC0, 0x0C, // original name
-        0x00, 0x00, // empty type. TXT=10.
+        0x00, 0x00, // empty type. TXT=0x10, CNAME=0x05
         0x00, 0x01, // class
         0x00, 0x00, 0x0e, 0x10, // ttl == 3600
         0x00, 0x00, // length, placeholder
@@ -153,6 +130,47 @@ func getTwitter(userName string) []byte {
         return make([]byte, 0)
     }
     // b, err := json.Marshal(s)
-    fmt.Println("Tweet: ", s)
+    log.Println("Tweet: ", s)
     return []byte(s)
+}
+
+
+
+func main() {
+    var bufLocal [512]byte
+    serverAddr, _ := net.ResolveUDPAddr("udp", "0:53")
+    server, _ := net.ListenUDP("udp", serverAddr)
+    for {
+        c, addr, _ := server.ReadFrom(bufLocal[:512])
+        dataReq := bufLocal[:c]
+        f, _ := server.File()
+        fd := int(f.Fd())
+        // this get the server TTL
+        // ttl, _ := syscall.GetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_TTL)
+        syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_RECVTTL, 1)
+
+        // see msg_control/cmsghdr from `man 2  recvmsg`
+        oob := make([]byte, 32) // actually 16
+        _, oobn, _, _, _ := syscall.Recvmsg(fd, nil, oob, 0)
+        ttl := binary.LittleEndian.Uint32(oob[12:16])
+        log.Printf(
+            "Q: %v xid=%v fd=%v ttl=%v\n", 
+            addr, binary.BigEndian.Uint16(dataReq[0:2]), fd, ttl)
+        fmt.Println(oob[:oobn])
+        f.Close()
+        go func(){
+            dataRsp := bufLocal[:c]
+            if false {
+                binary.BigEndian.PutUint16(dataRsp[2:4], 0x8183)
+                server.WriteTo(dataRsp, addr)
+            } else {
+                twitterName := parseName(dataReq)
+                fmt.Println(twitterName)
+                tweetData := getTwitter(twitterName) // could be `printf` in bash
+                // _ = tweetData
+                dataRsp = setAnswer(dataRsp, tweetData, 0x05)
+                server.WriteTo(dataRsp, addr)
+            }
+        }()
+    }
 }
