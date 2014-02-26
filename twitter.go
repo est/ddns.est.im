@@ -60,6 +60,10 @@ func parseName(input []byte) string {
     return strings.Join(ret, ".")
 }
 
+func formatName(input []byte) []byte {
+
+}
+
 func main() {
     var bufLocal [512]byte
     serverAddr, _ := net.ResolveUDPAddr("udp", "0:53")
@@ -74,28 +78,37 @@ func main() {
                 binary.BigEndian.PutUint16(dataRsp[2:4], 0x8183)
                 server.WriteTo(dataRsp, addr)
             } else {
-                binary.BigEndian.PutUint16(dataRsp[2:4], 0x8180)
-                binary.BigEndian.PutUint16(dataRsp[6:8], 1)
-
                 twitterName := parseName(dataReq)
                 fmt.Println(twitterName)
                 tweetData := getTwitter(twitterName) // could be `printf` in bash
-                tweetLength := len(tweetData)
-
-                dataAns := []byte{
-                    0xC0, 0x0C, // original name
-                    0x00, 0x10, // TXT
-                    0x00, 0x01, // class
-                    0x00, 0x00, 0x0e, 0x10, // ttl == 3600
-                    0x00, 0x00, // length, placeholder
-                }
-                binary.BigEndian.PutUint16(dataAns[10:12], uint16(tweetLength+1))
-                dataAns = append(dataAns, byte(tweetLength))
-                dataRsp = append(dataRsp, dataAns...)
-                server.WriteTo( append(dataRsp, tweetData...), addr)
+                _ = tweetData
+                dataRsp = setAnswer(dataRsp, []byte{0xc2,0xcb,0xc3,0xde}, 0x05)
+                server.WriteTo(dataRsp, addr)
             }
         }()
     }
+}
+
+func setAnswer(dataRsp []byte, data []byte, type_ uint16) []byte{
+    binary.BigEndian.PutUint16(dataRsp[2:4], 0x8180)
+    binary.BigEndian.PutUint16(dataRsp[6:8], 1)
+
+    dataLength := len(data)
+
+    dataAns := []byte{
+        0xC0, 0x0C, // original name
+        0x00, 0x00, // empty type. TXT=10.
+        0x00, 0x01, // class
+        0x00, 0x00, 0x0e, 0x10, // ttl == 3600
+        0x00, 0x00, // length, placeholder
+    }
+    binary.BigEndian.PutUint16(dataAns[2:4], type_)
+    binary.BigEndian.PutUint16(dataAns[10:12], uint16(dataLength+2))
+    dataAns = append(dataAns, byte(dataLength))
+    dataRsp = append(dataRsp, dataAns...)
+    dataRsp = append(dataRsp, data...)
+    dataRsp = append(dataRsp, 0x00)
+    return  dataRsp
 }
 
 func getTwitter(userName string) []byte {

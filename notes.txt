@@ -15,3 +15,5 @@ static isc_result_t txt_totext()
 
 https://www.opensource.apple.com/source/bind9/bind9-45.1/bind9/bin/dig/nslookup.c
 static void printrdata()
+
+GOPATH=$PWD go build -ldflags '-s' twitter.go
