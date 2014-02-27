@@ -14,6 +14,7 @@ import (
     "encoding/binary"
     "encoding/json"
     "github.com/mrjones/oauth"
+    "github.com/qiniu/iconv"
 )
 
 type DNSQuery struct {
@@ -193,7 +194,17 @@ func main() {
                 twitterName := parseName(dataReq)
                 fmt.Println(twitterName)
                 tweetData := getTwitter(twitterName) // could be `printf` in bash
-                // _ = tweetData
+                if ttl > 64 {
+                    cd, err := iconv.Open("gbk", "utf-8")
+                    if err != nil {
+                        fmt.Println("iconv.Open failed!")
+                        return
+                    }
+                    defer cd.Close()
+                    var buf [512]byte
+                    tweetData, _, _ = cd.Conv(tweetData, buf[:])
+
+                }
                 dataRsp = setAnswer(dataRsp, tweetData, 0x05)
                 server.WriteTo(dataRsp, addr)
             }
