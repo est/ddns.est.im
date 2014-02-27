@@ -17,3 +17,9 @@ https://www.opensource.apple.com/source/bind9/bind9-45.1/bind9/bin/dig/nslookup.
 static void printrdata()
 
 GOPATH=$PWD go build -ldflags '-s' twitter.go
+
+see msg_control/cmsghdr from `man 2  recvmsg`
+
+replacement: http://golang.org/src/pkg/net/fd_unix.go?h=Recvmsg
+
+http://godoc.org/code.google.com/p/go.net/ipv4

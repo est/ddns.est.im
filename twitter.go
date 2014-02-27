@@ -4,10 +4,12 @@ package main
 import (
     "log"
     "fmt"
+    "errors"
     "io/ioutil"
     _"bytes"
     "strings"
     "syscall"
+    "reflect"
     "net"
     "encoding/binary"
     "encoding/json"
@@ -39,6 +41,24 @@ type DNSPacket struct {
     question DNSQuery
     answer DNSAnswer
 }
+
+
+// copy paste from http://code.google.com/p/go/source/browse/ipv4/helper_unix.go?repo=net#38
+var errInvalidConnType = errors.New("invalid conn type")
+func sysfd(c net.Conn) (int, error) {
+        cv := reflect.ValueOf(c)
+        switch ce := cv.Elem(); ce.Kind() {
+        case reflect.Struct:
+                netfd := ce.FieldByName("conn").FieldByName("fd")
+                switch fe := netfd.Elem(); fe.Kind() {
+                case reflect.Struct:
+                        fd := fe.FieldByName("sysfd")
+                        return int(fd.Int()), nil
+                }
+        }
+        return 0, errInvalidConnType
+}
+
 
 func parseName(input []byte) string {
     var ret []string
@@ -137,33 +157,35 @@ func getTwitter(userName string) []byte {
 
 
 func main() {
-    var bufLocal [512]byte
+    bufLocal := make([]byte, 512)
     serverAddr, _ := net.ResolveUDPAddr("udp", "0:53")
     server, _ := net.ListenUDP("udp", serverAddr)
     for {
-        c, addr, _ := server.ReadFrom(bufLocal[:512])
-        dataReq := bufLocal[:c]
-        f, _ := server.File()
-        fd := int(f.Fd())-2
-        f.Close()
-        // this get the server TTL
+
+        fd, err := sysfd(server)
+        if err != nil {
+            log.Panic()
+        }
+
+        // this only gets the server TTL
         // ttl, _ := syscall.GetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_TTL)
-        err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_RECVTTL, 1)
+
+        err = syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_RECVTTL, 1)
         if err != nil {
             log.Panic()
         }
 
         // see msg_control/cmsghdr from `man 2  recvmsg`
-        cmsg := make([]byte, 32)
         oob := make([]byte, 32) // actually 16
-        _, oobn, _, _, _ := syscall.Recvmsg(fd, cmsg, oob, 0)
+        n, oobn, _, addr, _ := server.ReadMsgUDP(bufLocal, oob)
+        dataReq := bufLocal[:n]
         ttl := binary.LittleEndian.Uint32(oob[12:16])
         log.Printf(
             "Q: %v xid=%v fd=%v ttl=%v\n", 
             addr, binary.BigEndian.Uint16(dataReq[0:2]), fd, ttl)
         fmt.Println(oob[:oobn])
         go func(){
-            dataRsp := bufLocal[:c]
+            dataRsp := bufLocal[:n]
             if false {
                 binary.BigEndian.PutUint16(dataRsp[2:4], 0x8183)
                 server.WriteTo(dataRsp, addr)
