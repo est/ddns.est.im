@@ -7,17 +7,7 @@ from __future__ import absolute_import, division, print_function, \
 import os
 import struct
 import socket
-
-
-class TempoDNS(object):
-    sock = None
-
-    def run(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(('0.0.0.0', 53))
-        while True:
-            data, addr = yield self.sock.recvfrom(4096)
-            self.sock.sendto(data, addr)
+import logging
 
 
 class DNSUtil(object):
@@ -151,52 +141,92 @@ class DNSRequest(object):
 
 
 class DNSResponse(object):
-    def __init__(self, data):
-        self.data = data
+    def __init__(self):
+        pass
 
-    def parse(self):
+    def parse(self, data):
         offset = 12  # lets hope
-        if len(self.data) < offset:
-            raise ValueError('Bad Response: %r' % self.data)
+        if len(data) < offset:
+            raise ValueError('Bad Response: %r' % data)
         fmt = '!2sH4H'
-        r = struct.unpack(fmt, self.data[:offset])
+        r = struct.unpack(fmt, data[:offset])
         self.req_id, self.flag, self.res_nums = r[0], r[1], r[2:]
-        l = self.data[offset]
+        l = data[offset]
 
         questions, answers = [], []
         for i in range(0, self.res_nums[0]):
-            l, r = DNSUtil.parse_record(self.data, offset, True)
+            l, r = DNSUtil.parse_record(data, offset, True)
             offset += l
             if r:
                 questions.append(r)
         for i in range(0, self.res_nums[1]):
-            l, r = DNSUtil.parse_record(self.data, offset)
+            l, r = DNSUtil.parse_record(data, offset)
             offset += l
             if r:
                 answers.append(r)
         for i in range(0, self.res_nums[2]):
-            l, r = DNSUtil.parse_record(self.data, offset)
+            l, r = DNSUtil.parse_record(data, offset)
             offset += l
         for i in range(0, self.res_nums[3]):
-            l, r = DNSUtil.parse_record(self.data, offset)
+            l, r = DNSUtil.parse_record(data, offset)
             offset += l
-
         return answers
 
+    @classmethod
+    def make_rsp(cls, req_data=None, cname_text='', ip=''):
+        rsp = bytearray(req_data)
+        rsp[2:8] = struct.pack(
+            '!H2sH',
+            0x8180,  # flag for standard response
+            req_data[4:6],
+            2,  # two answers. One for CNAME one for A record.
+        )
+        addr1 = DNSUtil.build_address(cname_text)
+        addr2 = socket.inet_aton(ip)
+        rsp = rsp + struct.pack(
+            '!HHHIH%ss' % len(addr1),
+            # 0xC00C, leading 11 means compression, points to offset 12
+            int('11000000', 2) << 8 | 12,
+            DNSUtil.QTYPE_CNAME,
+            DNSUtil.QCLASS_IN,
+            60,  # ttl
+            len(addr1),
+            addr1
+        ) + struct.pack(
+            '!HHHIH%ss' % len(addr2),
+            # 0xC00C, leading 11 means compression, points to offset 12
+            int('11000000', 2) << 8 | 12,
+            DNSUtil.QTYPE_A,
+            DNSUtil.QCLASS_IN,
+            60,  # ttl
+            len(addr2),
+            addr2
+        )
+        return rsp
 
-def test():
+
+def test_parse_rsp():
     rsp_data = """
-    c12d81800001000300000000066d656971696103
-    636f6d0000010001c00c000500010000001e0020
-    1037343334613237363137373637653937036364
-    6e086a69617368756c65c013c028000100010000
-    001e0004db9949d2c028000100010000001e0004
-    db9949f5""".replace('\n', '').replace(' ', '').decode('hex')
-    print(DNSResponse(rsp_data).parse())
+    cd008180000100020000000002733309616d617a
+    6f6e61777303636f6d0000010001c00c00050001
+    0000044700070473332d31c00fc02e0001000100
+    00001e000436e7628b""".replace('\n', '').replace(' ', '').decode('hex')
+    print(DNSResponse().parse(rsp_data))
+
+
+def run_server():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('0.0.0.0', 53))
+    while True:
+        data, addr = sock.recvfrom(4096)
+        print('got from %s', addr)
+        data = DNSResponse.make_rsp(data, 'shit日', addr[0])
+        print('Send to %s with %s' % (addr, len(data)))
+        sock.sendto(data, addr)
 
 
 if '__main__' == __name__:
-    test()
+    run_server()
 
 
 
