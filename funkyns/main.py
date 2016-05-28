@@ -14,26 +14,12 @@ class DNSUtil(object):
     """
     rfc1035
     record
-                                   1  1  1  1  1  1
-     0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                                               |
-    /                                               /
-    /                      NAME                     /
-    |                                               |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                      TYPE                     |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                     CLASS                     |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                      TTL                      |
-    |                                               |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                   RDLENGTH                    |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
-    /                     RDATA                     /
-    /                                               /
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+     - NAME 
+     - TYPE
+     - CLASS
+     - TTL
+     - RDLENGTH
+     - RDATA
     """
     QTYPE_ANY = 255
     QTYPE_A = 1
@@ -173,6 +159,27 @@ class DNSResponse(object):
         return answers
 
     @classmethod
+    def make_rr(cls, name_or_offset, rdata, qtype=DNSUtil.QTYPE_A, ttl=60):
+        if isinstance(name_or_offset, int):
+            # 0xC00C, leading 11 means compression, points to offset 12
+            name = int('11000000', 2) << 8 | int(name_or_offset)
+            fmt = '!HHHIH%ss' % len(rdata)
+        elif isinstance(name_or_offset, str):
+            name = DNSUtil.build_address(name_or_offset)
+            fmt = '!%ssHHIH%ss' % (len(name), len(rdata))
+        else:
+            return ''
+        return struct.pack(
+            fmt,
+            name,
+            qtype,
+            DNSUtil.QCLASS_IN,
+            ttl,  # ttl
+            len(rdata),
+            rdata
+        )
+
+    @classmethod
     def make_rsp(cls, req_data=None, cname_text='', ip=''):
         rsp = bytearray(req_data)
         rsp[2:8] = struct.pack(
@@ -181,28 +188,10 @@ class DNSResponse(object):
             req_data[4:6],
             2,  # two answers. One for CNAME one for A record.
         )
-        addr1 = DNSUtil.build_address(cname_text)
-        addr2 = socket.inet_aton(ip)
-        rsp = rsp + struct.pack(
-            '!HHHIH%ss' % len(addr1),
-            # 0xC00C, leading 11 means compression, points to offset 12
-            int('11000000', 2) << 8 | 12,
-            DNSUtil.QTYPE_CNAME,
-            DNSUtil.QCLASS_IN,
-            60,  # ttl
-            len(addr1),
-            addr1
-        ) + struct.pack(
-            '!HHHIH%ss' % len(addr2),
-            # 0xC00C, leading 11 means compression, points to offset 12
-            int('11000000', 2) << 8 | 12,
-            DNSUtil.QTYPE_A,
-            DNSUtil.QCLASS_IN,
-            60,  # ttl
-            len(addr2),
-            addr2
-        )
-        return rsp
+        return ''.join([
+            str(rsp),
+            cls.make_rr(12, DNSUtil.build_address(cname_text), DNSUtil.QTYPE_CNAME),
+            cls.make_rr(cname_text, socket.inet_aton(ip)) ])
 
 
 def test_parse_rsp():
@@ -220,7 +209,7 @@ def run_server():
     while True:
         data, addr = sock.recvfrom(4096)
         print('got from %s', addr)
-        data = DNSResponse.make_rsp(data, 'shit日', addr[0])
+        data = DNSResponse.make_rsp(data, 'shit\xce\xd2\xc8\xd5\x817\xa28\x817\xa29\x817\xa30\x817\xa31', addr[0])
         print('Send to %s with %s' % (addr, len(data)))
         sock.sendto(data, addr)
 
