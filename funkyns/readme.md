@@ -26,3 +26,4 @@ ToDo
 
 [ ] Phone prefix
 [ ] Airport code
+[ ] 48h or 72h format

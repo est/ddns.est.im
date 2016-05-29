@@ -116,6 +116,10 @@ class DNSRequest(object):
         self.name = name
         self.qtype = qtype
 
+    @classmethod
+    def parse(cls, data):
+        return cls('')
+
     def bytes(self):
         return '%s%s%s' % (
             struct.pack('!2sH4H', self.req_id, self.flag, *self.req_nums),

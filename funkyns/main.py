@@ -6,9 +6,10 @@ import socket
 import logging
 import urllib2
 import json
+import re
 
+import dns
 import weather as weather_svr
-from dns import DNSResponse
 from ipip import IPData
 
 logging.basicConfig(level=logging.DEBUG)
@@ -40,9 +41,19 @@ def handler(data, addr):
     receive: data
     return: cname, rr_value
     """
-    pinyin, station_id, name = GeoWeather.get_station_by_ip(addr[0])
-    logging.debug('ip: %s, station: %s', addr[0], station_id)
-    svc = weather_svr.WeatherService(station_id)
+    req = dns.DNSRequest.parse(data)
+
+    m = re.search(r'^(\w+)\.[\w\.]*(?:tempo|weather|tq|tianqi)\.est\.im\.?$',
+                  req.name)
+    if m:
+        svc = weather_svr.WeatherService(m.group(1))
+        if not svc.wmo_id:
+            m = False  # a hack to handle non-exist city
+    if not m:  # elif re.search(r'^tempo\.est\.im\.?$', req.name):
+        pinyin, station_id, name = GeoWeather.get_station_by_ip(addr[0])
+        logging.debug('ip: %s, station: %s', addr[0], station_id)
+        svc = weather_svr.WeatherService(station_id)
+
     url = svc.build_nmc_cn_city_id_url()
     logging.debug('get city_id %s', url)
     r = json.load(urllib2.urlopen(url))
@@ -51,6 +62,7 @@ def handler(data, addr):
     logging.debug('get forecast %s', url)
     r = json.load(urllib2.urlopen(url))
     status = svc.parse_nmc_cn(r)
+
     return status, addr[0]
 
 
@@ -62,7 +74,7 @@ def run_server():
         logging.debug('[Req] %s bytes from %s: ', len(data), addr)
         # cname, rr_value = handler(data, addr)
         cname, rr_value = handler(data, ('118.113.59.116', addr[1]))
-        data = DNSResponse.make_rsp(data, safe_str(cname), safe_str(rr_value))
+        data = dns.DNSResponse.make_rsp(data, safe_str(cname), safe_str(rr_value))
         logging.debug('[Rsp] %s bytes to %s', len(data), addr)
         sock.sendto(data, addr)
 
