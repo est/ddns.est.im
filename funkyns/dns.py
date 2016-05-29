@@ -165,8 +165,10 @@ class DNSRequest(object):
         if not rr_answers:
             flag = 0x8183  # NXDOMAIN
             rr_answers = []
-        else:
-            flag = 0x8180  # flag for standard response
+        else:  # rr_authority:
+            flag = 0x8400
+        # else:
+        #     flag = 0x8180  # flag for standard response
 
         if not isinstance(rr_answers, (list, tuple)):
             rr_answers = [rr_answers]
