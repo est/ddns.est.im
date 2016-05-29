@@ -62,7 +62,8 @@ def handler(req, addr):
     receive: data
     return: cname, rr_value
     """
-
+    if req.name.count('.') > 3:
+        return 'tempo.est.im', addr[0]
     m = re.search(r'^(\w+)\.(?:tempo|weather|tq|tianqi)\.est\.im\.?$',
                   req.name)
     if m:
@@ -70,8 +71,6 @@ def handler(req, addr):
         svc = weather_svr.WeatherService(pinyin)
         if not svc.station_id:
             m = False  # a hack to handle non-exist city
-    else:
-        return 'tempo.est.im', addr[0]
     if not m:  # elif re.search(r'^tempo\.est\.im\.?$', req.name):
         pinyin, station_id, name = GeoWeather.get_station_by_ip(addr[0])
         logging.debug('ip: %s, station: %s', addr[0], station_id)
