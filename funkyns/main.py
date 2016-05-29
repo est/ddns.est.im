@@ -88,11 +88,11 @@ def handler(req, addr):
     condition = get_weather_condition(svc.station_id)
     status = '%s.%s.tempo.est.im' % (condition, pinyin)
 
-    return req.respond([
+    return req.respond(
         RR(
             12, status, DNSUtil.QTYPE_CNAME
         ), RR(
-            status, HOST_IP)])
+            status, HOST_IP))
 
 
 def run_server():
