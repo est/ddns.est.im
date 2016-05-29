@@ -2419,16 +2419,18 @@ class WeatherService(object):
     def get_station_id(cls, pinyin=None):
         return cls.wmo_stations.get(pinyin)
 
-    def build_nmc_cn_city_id_url(self, station_id=None):
+    @classmethod
+    def build_nmc_cn_city_id_url(cls, station_id=None):
         """
         http://www.nmc.cn/publish/sta/56294.json
         http://www.nmc.cn/f/forecast/aqi?stationcode=56294&_=1464489381532
         http://www.nmc.cn/service/data/predict/101270101.json
         http://www.nmc.cn/service/data/real/101270101.json
         """
-        return 'http://www.nmc.cn/publish/sta/%s.json' % station_id or self.station_id
+        return 'http://www.nmc.cn/publish/sta/%s.json' % station_id or cls.station_id
 
-    def build_nmc_cn_forecast_url(self, city_id):
+    @classmethod
+    def build_nmc_cn_forecast_url(cls, city_id):
         return 'http://www.nmc.cn/service/data/predict/%s.json' % city_id
 
     @classmethod
@@ -2469,6 +2471,8 @@ class WeatherService(object):
         if day is None:
             return
         img_id = data['detail'][day]['day']['weather']['img']
+        if img_id == '9999':
+            img_id = data['detail'][day]['night']['weather']['img']
         return cls.get_nmc_cn_weather_symbol(img_id)
 
 

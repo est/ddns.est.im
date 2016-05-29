@@ -26,9 +26,11 @@ class DNSUtil(object):
     QTYPE_AAAA = 28
     QTYPE_CNAME = 5
     QTYPE_NS = 2
+
     QCLASS_IN = 1
 
     QTYPE_NAMES = {
+        0: '',
         1: 'A',
         2: 'NS',
         5: 'CNAME',
@@ -109,6 +111,7 @@ class DNSRequest(object):
     req_id_bytes = None
     flag = None
     req_nums = [0, 0, 0, 0]
+    data = ''
 
     def __init__(self, name, qtype=DNSUtil.QTYPE_A):
         self.req_id_bytes = os.urandom(2)
@@ -119,23 +122,33 @@ class DNSRequest(object):
 
         self.name = name
         self.qtype = qtype
+        self.qtype_name = DNSUtil.QTYPE_NAMES[self.qtype]
 
     @classmethod
     def parse(cls, data):
         r = struct.unpack('!2sH4H', data[:12])
-        offset, name = DNSUtil.parse_name(data, 12)
+        l, name = DNSUtil.parse_name(data, 12)
+        offset = l + 12
         qtype, qclass = struct.unpack('!HH', data[offset:offset + 4])
         obj = cls(name, qtype)
+        obj.data = data
         obj.req_id_bytes = r[0]
         obj.flag = r[1]
         obj.req_nums = r[2:6]
         return obj
 
-    def bytes(self):
+    @property
+    def data(self):
+        if getattr(self, '_data', None):
+            return self._data
         return '%s%s%s' % (
             struct.pack('!2sH4H', self.req_id_bytes, self.flag, *self.req_nums),
             DNSUtil.build_address(self.name),
             struct.pack('!HH', self.qtype, DNSUtil.QCLASS_IN))
+
+    @data.setter
+    def data(self, value):
+        self._data = value
 
     def __repr__(self):
         return '<DNSRequest: %s>' % self.name
