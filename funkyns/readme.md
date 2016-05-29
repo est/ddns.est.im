@@ -27,3 +27,13 @@ ToDo
 [ ] Phone prefix
 [ ] Airport code
 [ ] 48h or 72h format
+
+[ ] PM2.5, maybe aqicn.org or embassy stats
+
+ver.est.im
+
+[ ] Android or iOS version detector lol
+
+dl.est.im
+
+[ ] lookup by TXT to grab download URL.
