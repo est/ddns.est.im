@@ -35,9 +35,9 @@ ToDo
  - [ ] Phone prefix
  - [ ] Airport code
  - [ ] 48h or 72h format `ping beijing.48h.tempo.est.im`
-
  - [ ] PM2.5, maybe aqicn.org or embassy stats
-
+ - [ ] le Windowd hack for CJK chars.
+ 
 
 Ideas
 ==
