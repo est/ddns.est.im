@@ -106,23 +106,34 @@ class DNSUtil(object):
 
 
 class DNSRequest(object):
+    req_id_bytes = None
+    flag = None
+    req_nums = [0, 0, 0, 0]
+
     def __init__(self, name, qtype=DNSUtil.QTYPE_A):
-        self.req_id = os.urandom(2)
+        self.req_id_bytes = os.urandom(2)
         # flag: Standard Query
         self.flag = 0x0100
         # 1 question, 0 answer RR, 0 authority RR, 0 additional RR
-        self.req_nums = (1, 0, 0, 0)
+        self.req_nums = [1, 0, 0, 0]
 
         self.name = name
         self.qtype = qtype
 
     @classmethod
     def parse(cls, data):
-        return cls('')
+        r = struct.unpack('!2sH4H', data[:12])
+        offset, name = DNSUtil.parse_name(data, 12)
+        qtype, qclass = struct.unpack('!HH', data[offset:offset + 4])
+        obj = cls(name, qtype)
+        obj.req_id_bytes = r[0]
+        obj.flag = r[1]
+        obj.req_nums = r[2:6]
+        return obj
 
     def bytes(self):
         return '%s%s%s' % (
-            struct.pack('!2sH4H', self.req_id, self.flag, *self.req_nums),
+            struct.pack('!2sH4H', self.req_id_bytes, self.flag, *self.req_nums),
             DNSUtil.build_address(self.name),
             struct.pack('!HH', self.qtype, DNSUtil.QCLASS_IN))
 

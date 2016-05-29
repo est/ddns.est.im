@@ -46,7 +46,8 @@ def handler(data, addr):
     m = re.search(r'^(\w+)\.[\w\.]*(?:tempo|weather|tq|tianqi)\.est\.im\.?$',
                   req.name)
     if m:
-        svc = weather_svr.WeatherService(m.group(1))
+        pinyin = m.group(1)
+        svc = weather_svr.WeatherService(pinyin)
         if not svc.wmo_id:
             m = False  # a hack to handle non-exist city
     if not m:  # elif re.search(r'^tempo\.est\.im\.?$', req.name):
@@ -61,7 +62,8 @@ def handler(data, addr):
     url = svc.build_nmc_cn_forecast_url(city_id)
     logging.debug('get forecast %s', url)
     r = json.load(urllib2.urlopen(url))
-    status = svc.parse_nmc_cn(r)
+    condition = svc.parse_nmc_cn(r)
+    status = '%s.%s.tempo.est.im' % (condition, pinyin)
 
     return status, addr[0]
 

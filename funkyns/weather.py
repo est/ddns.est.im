@@ -2413,6 +2413,7 @@ class WeatherService(object):
             self.wmo_id = pinyin_or_id
         else:
             self.wmo_id = self.get_wmo_id(pinyin_or_id)
+            self.pinyin = pinyin_or_id
 
     @classmethod
     def get_wmo_id(cls, pinyin=None):
