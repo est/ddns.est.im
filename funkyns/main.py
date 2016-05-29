@@ -35,6 +35,17 @@ class GeoWeather(object):
             return ret[0], int(ret[1]), ret[2]
         return (None, None, None)
 
+    @classmethod
+    def get_weather_condition(cls, station_id):
+        url = weather_svr.WeatherService.build_nmc_cn_city_id_url(weather_svr.WeatherService.station_id)
+        logging.debug('get city_id %s', url)
+        r = json.load(urllib2.urlopen(url))
+        city_id = r[3]
+        url = weather_svr.WeatherService.build_nmc_cn_forecast_url(city_id)
+        logging.debug('get forecast %s', url)
+        r = json.load(urllib2.urlopen(url))
+        return weather_svr.WeatherService.parse_nmc_cn(r)
+
 
 def handler(data, addr):
     """
@@ -55,14 +66,7 @@ def handler(data, addr):
         logging.debug('ip: %s, station: %s', addr[0], station_id)
         svc = weather_svr.WeatherService(station_id)
 
-    url = svc.build_nmc_cn_city_id_url()
-    logging.debug('get city_id %s', url)
-    r = json.load(urllib2.urlopen(url))
-    city_id = r[3]
-    url = svc.build_nmc_cn_forecast_url(city_id)
-    logging.debug('get forecast %s', url)
-    r = json.load(urllib2.urlopen(url))
-    condition = svc.parse_nmc_cn(r)
+    condition = GeoWeather.get_weather_condition(svc.station_id)
     status = '%s.%s.tempo.est.im' % (condition, pinyin)
 
     return status, addr[0]

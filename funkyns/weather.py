@@ -2410,23 +2410,23 @@ class WeatherService(object):
 
     def __init__(self, pinyin_or_id):
         if isinstance(pinyin_or_id, int):
-            self.wmo_id = pinyin_or_id
+            self.station_id = pinyin_or_id
         else:
-            self.wmo_id = self.get_wmo_id(pinyin_or_id)
+            self.station_id = self.get_station_id(pinyin_or_id)
             self.pinyin = pinyin_or_id
 
     @classmethod
-    def get_wmo_id(cls, pinyin=None):
+    def get_station_id(cls, pinyin=None):
         return cls.wmo_stations.get(pinyin)
 
-    def build_nmc_cn_city_id_url(self):
+    def build_nmc_cn_city_id_url(self, station_id=None):
         """
         http://www.nmc.cn/publish/sta/56294.json
         http://www.nmc.cn/f/forecast/aqi?stationcode=56294&_=1464489381532
         http://www.nmc.cn/service/data/predict/101270101.json
         http://www.nmc.cn/service/data/real/101270101.json
         """
-        return 'http://www.nmc.cn/publish/sta/%s.json' % self.wmo_id
+        return 'http://www.nmc.cn/publish/sta/%s.json' % station_id or self.station_id
 
     def build_nmc_cn_forecast_url(self, city_id):
         return 'http://www.nmc.cn/service/data/predict/%s.json' % city_id
