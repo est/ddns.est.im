@@ -1,0 +1,182 @@
+{
+    "city_code": "101270101",
+    "city_url": "http://www.weather.gov.cn/publish/forecast/ASC/chengdu.html",
+    "city_name": "成都",
+    "date_time": "2016-05-29 08:00",
+    "detail": [{
+        "date": "2016-05-29",
+        "pt": "2016-05-29 08:00",
+        "day": {
+            "weather": {
+                "info": "多云",
+                "img": "1",
+                "temperature": "29"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        },
+        "night": {
+            "weather": {
+                "info": "小雨",
+                "img": "7",
+                "temperature": "18"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        }
+    }, {
+        "date": "2016-05-30",
+        "pt": "2016-05-29 08:00",
+        "day": {
+            "weather": {
+                "info": "多云",
+                "img": "1",
+                "temperature": "29"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        },
+        "night": {
+            "weather": {
+                "info": "多云",
+                "img": "1",
+                "temperature": "20"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        }
+    }, {
+        "date": "2016-05-31",
+        "pt": "2016-05-29 08:00",
+        "day": {
+            "weather": {
+                "info": "多云",
+                "img": "1",
+                "temperature": "29"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        },
+        "night": {
+            "weather": {
+                "info": "小雨",
+                "img": "7",
+                "temperature": "21"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        }
+    }, {
+        "date": "2016-06-01",
+        "pt": "2016-05-29 08:00",
+        "day": {
+            "weather": {
+                "info": "小雨",
+                "img": "7",
+                "temperature": "30"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        },
+        "night": {
+            "weather": {
+                "info": "小雨",
+                "img": "7",
+                "temperature": "21"
+            },
+            "wind": {
+                "direct": "北风",
+                "power": "微风"
+            }
+        }
+    }, {
+        "date": "2016-06-02",
+        "pt": "2016-05-29 08:00",
+        "day": {
+            "weather": {
+                "info": "中雨",
+                "img": "8",
+                "temperature": "24"
+            },
+            "wind": {
+                "direct": "北风",
+                "power": "微风"
+            }
+        },
+        "night": {
+            "weather": {
+                "info": "中雨",
+                "img": "8",
+                "temperature": "19"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        }
+    }, {
+        "date": "2016-06-03",
+        "pt": "2016-05-29 08:00",
+        "day": {
+            "weather": {
+                "info": "多云",
+                "img": "1",
+                "temperature": "29"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        },
+        "night": {
+            "weather": {
+                "info": "多云",
+                "img": "1",
+                "temperature": "17"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        }
+    }, {
+        "date": "2016-06-04",
+        "pt": "2016-05-29 08:00",
+        "day": {
+            "weather": {
+                "info": "小雨",
+                "img": "7",
+                "temperature": "28"
+            },
+            "wind": {
+                "direct": "南风",
+                "power": "微风"
+            }
+        },
+        "night": {
+            "weather": {
+                "info": "多云",
+                "img": "1",
+                "temperature": "23"
+            },
+            "wind": {
+                "direct": "无持续风向",
+                "power": "微风"
+            }
+        }
+    }]
+}
