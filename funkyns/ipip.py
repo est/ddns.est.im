@@ -4,108 +4,53 @@
 # ref: https://github.com/17mon/python/blob/master/ipip.py
 
 import struct
-from socket import inet_aton
-import os
-
-_unpack_V = lambda b: struct.unpack("<L", b)
-_unpack_N = lambda b: struct.unpack(">L", b)
-_unpack_C = lambda b: struct.unpack("B", b)
+import socket
+import mmap
 
 
-class IP:
-    offset = 0
-    index = 0
-    binary = ""
+class IPData(object):
+    def __init__(self, file_name):
+        self.file = open(file_name, 'rb')
+        self.mm = mmap.mmap(self.file.fileno(), 0, prot=mmap.PROT_READ)
+        self.total_length, = struct.unpack(">L", self.mm[:4])
+        self.content = self.mm[4:self.total_length]
 
-    @staticmethod
-    def load(file):
-        try:
-            path = os.path.abspath(file)
-            with open(path, "rb") as f:
-                IP.binary = f.read()
-                IP.offset, = _unpack_N(IP.binary[:4])
-                IP.index = IP.binary[4:IP.offset]
-        except Exception as ex:
-            print "cannot open file %s" % file
-            print ex.message
-            exit(0)
+    def find(self, ip):
+        nip = socket.inet_aton(ip)  # this assumes correctness
+        ip_dot = ip.split('.')
+        p = int(ip_dot[0]) * 4
+        start, = struct.unpack('<L', self.content[p:p + 4])
 
-    @staticmethod
-    def find(ip):
-        index = IP.index
-        offset = IP.offset
-        binary = IP.binary
-        nip = inet_aton(ip)
-        ipdot = ip.split('.')
-        if int(ipdot[0]) < 0 or int(ipdot[0]) > 255 or len(ipdot) != 4:
-            return "N/A"
-
-        tmp_offset = int(ipdot[0]) * 4
-        start, = _unpack_V(index[tmp_offset:tmp_offset + 4])
-
-        index_offset = index_length = 0
-        max_comp_len = offset - 1028
+        index_offset, index_length = 0, 0
+        max_comp_len = self.total_length - 1028
         start = start * 8 + 1024
         while start < max_comp_len:
-            if index[start:start + 4] >= nip:
-                index_offset, = _unpack_V(
-                    index[start + 4:start + 7] + chr(0).encode('utf-8'))
-                index_length, = _unpack_C(index[start + 7])
+            if self.content[start:start + 4] >= nip:
+                index_offset, = struct.unpack(
+                    "<L",
+                    self.content[start + 4:start + 7] + '\0')
+                index_length, = struct.unpack('B', self.content[start + 7])
                 break
             start += 8
 
         if index_offset == 0:
             return "N/A"
 
-        res_offset = offset + index_offset - 1024
-        return binary[res_offset:res_offset + index_length].decode('utf-8')
+        res_offset = self.total_length + index_offset - 1024
+        return self.mm[res_offset:res_offset + index_length]
 
 
-class IPX:
-    binary = ""
-    index = 0
-    offset = 0
+def test():
+    import timeit
+    print(timeit.timeit(
+        "f.find('118.28.8.8')",
+        setup="f=__import__('ipip').IPData('17monipdb.dat')",
+        number=1000))
+    print(timeit.timeit(
+        "f.find('118.28.8.8')",
+        setup="f=__import__('ipip').IP; f.load('17monipdb.dat')",
+        number=1000))
 
-    @staticmethod
-    def load(file):
-        try:
-            path = os.path.abspath(file)
-            with open(path, "rb") as f:
-                IPX.binary = f.read()
-                IPX.offset, = _unpack_N(IPX.binary[:4])
-                IPX.index = IPX.binary[4:IPX.offset]
-        except Exception as ex:
-            print "cannot open file %s" % file
-            print ex.message
-            exit(0)
 
-    @staticmethod
-    def find(ip):
-        index = IPX.index
-        offset = IPX.offset
-        binary = IPX.binary
-        nip = inet_aton(ip)
-        ipdot = ip.split('.')
-        if int(ipdot[0]) < 0 or int(ipdot[0]) > 255 or len(ipdot) != 4:
-            return "N/A"
-
-        tmp_offset = (int(ipdot[0]) * 256 + int(ipdot[1])) * 4
-        start, = _unpack_V(index[tmp_offset:tmp_offset + 4])
-
-        index_offset = index_length = -1
-        max_comp_len = offset - 262144 - 4
-        start = start * 9 + 262144
-
-        while start < max_comp_len:
-            if index[start:start + 4] >= nip:
-                index_offset, = _unpack_V(
-                    index[start + 4:start + 7] + chr(0).encode('utf-8'))
-                index_length, = _unpack_C(index[start + 8:start + 9])
-                break
-            start += 9
-
-        if index_offset == 0:
-            return "N/A"
-
-        res_offset = offset + index_offset - 262144
-        return binary[res_offset:res_offset + index_length].decode('utf-8')
+if '__main__' == __name__:
+    test()
