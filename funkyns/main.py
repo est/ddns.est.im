@@ -17,13 +17,10 @@ from caching import ExpiringCache
 
 NMC_TTL = 3600  # nmc.cn has 1 hour http call cache.
 
-logging.basicConfig(level=logging.DEBUG)
-
-
-def safe_str(s):
-    if isinstance(s, unicode):
-        return s.encode('utf8')
-    return str(s)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S')
 
 
 class GeoWeather(object):
@@ -83,11 +80,11 @@ def handler(req, addr):
     condition = get_weather_condition(svc.station_id)
     status = '%s.%s.tempo.est.im' % (condition, pinyin)
 
-    return req.respond(
+    return req.respond([
         RR(
             12, status, DNSUtil.QTYPE_CNAME
         ), RR(
-            status, addr[0]))
+            status, addr[0])])
 
 
 def run_server():
@@ -97,13 +94,11 @@ def run_server():
     while True:
         req_data, addr = sock.recvfrom(4096)
         t0 = time.time()
-        # logging.debug('[Req] %s bytes from %s: ', len(data), addr)
         req = DNSRequest.parse(req_data)
         rsp_data = handler(req, addr)
         sock.sendto(rsp_data, addr)
         logging.info(
-            '[Query] %s %s:%s %sB->%sB in %03dms. [Ask]: %s of %s',
-            datetime.datetime.fromtimestamp(t0).isoformat(' '),
+            '[Query] %s:%s %sB->%sB in %03dms. [Ask]: %s of %s',
             addr[0], addr[1], len(req_data), len(rsp_data),
             (time.time() - t0) * 1000.0,
             req.qtype_name, req.name)

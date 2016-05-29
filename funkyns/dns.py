@@ -9,6 +9,12 @@ import struct
 import socket
 
 
+def safe_str(s):
+    if isinstance(s, unicode):
+        return s.encode('utf8')
+    return str(s)
+
+
 class DNSUtil(object):
     """
     rfc1035
@@ -29,19 +35,23 @@ class DNSUtil(object):
     QCLASS_IN = 1
 
     QTYPE_NAMES = {
-        0: '',
+        # 0: '',
         1: 'A',
         2: 'NS',
         5: 'CNAME',
         6: 'SOA',
+        10: 'NULL',
+        # 11: 'WKS',
         12: 'PTR',
+        # 13: 'HINFO',
+        # 14: 'MINFO',
         15: 'MX',
         16: 'TXT',
         28: 'AAAA',
         33: 'SRV',
-        44: 'SSHFP',
+        # 44: 'SSHFP',
         255: 'ANY',  # for request only
-        256: 'URI',
+        # 256: 'URI',
     }
 
     @staticmethod
@@ -157,16 +167,19 @@ class DNSRequest(object):
             rr_answers = []
         else:
             flag = 0x8180  # flag for standard response
-        if isinstance(rr_answers, RR):
+
+        if not isinstance(rr_answers, (list, tuple)):
             rr_answers = [rr_answers]
-        if isinstance(rr_answers, RR):
-            rr_authority = [rr_authority]
+
         if rr_authority is None:
             rr_authority = []
-        if isinstance(rr_additional, RR):
-            rr_additional = [rr_additional]
+        if not isinstance(rr_authority, (list, tuple)):
+            rr_authority = [rr_authority]
+
         if rr_additional is None:
             rr_additional = []
+        if not isinstance(rr_additional, (list, tuple)):
+            rr_additional = [rr_additional]
 
         rsp = bytearray(self.data)
         rsp[2:12] = struct.pack(
@@ -177,9 +190,8 @@ class DNSRequest(object):
             len(rr_authority),
             len(rr_additional)
         )
-        for answer in rr_answers + rr_authority + rr_additional:
-            rsp.append(answer)
-        return rsp
+        return rsp + ''.join(
+            str(x) for x in rr_answers + rr_authority + rr_additional)
 
     def __repr__(self):
         return '<DNSRequest: %s>' % self.name
@@ -187,17 +199,21 @@ class DNSRequest(object):
 
 class RR(object):
     """a DNS record"""
-    def __init__(self, name_or_offset, rdata, qtype=None, ttl=60):
+    def __init__(self, name_or_offset, rdata, qtype=DNSUtil.QTYPE_A, ttl=60):
+        if qtype in (2, 5, 12, 15):
+            # @FixMe: hardcoded shit
+            rdata = DNSUtil.build_address(rdata)
+        if qtype == DNSUtil.QTYPE_A and '.' in rdata:
+            rdata = socket.inet_aton(rdata)
         if isinstance(name_or_offset, int):
             # 0xC00C, leading 11 means compression, points to offset 12
             self.name = int('11000000', 2) << 8 | int(name_or_offset)
             self.fmt = '!HHHIH%ss' % len(rdata)
-        elif isinstance(name_or_offset, str):
-            self.name = DNSUtil.build_address(name_or_offset)
+        else:
+            self.name = DNSUtil.build_address(safe_str(name_or_offset))
             self.fmt = '!%ssHHIH%ss' % (len(self.name), len(rdata))
-
-        self.rdata = rdata
-        self.qtype = qtype or DNSUtil.QTYPE_A
+        self.qtype = qtype
+        self.rdata = safe_str(rdata)
         self.ttl = ttl
 
     def __str__(self):
