@@ -37,7 +37,7 @@ class IPData(object):
             return "N/A"
 
         res_offset = self.total_length + index_offset - 1024
-        return self.mm[res_offset:res_offset + index_length]
+        return self.mm[res_offset:res_offset + index_length].decode('utf8')
 
 
 def test():

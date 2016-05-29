@@ -14,7 +14,7 @@ class DNSUtil(object):
     """
     rfc1035
     record
-     - NAME 
+     - NAME
      - TYPE
      - CLASS
      - TTL
@@ -191,7 +191,7 @@ class DNSResponse(object):
         return ''.join([
             str(rsp),
             cls.make_rr(12, DNSUtil.build_address(cname_text), DNSUtil.QTYPE_CNAME),
-            cls.make_rr(cname_text, socket.inet_aton(ip)) ])
+            cls.make_rr(cname_text, socket.inet_aton(ip))])
 
 
 def test_parse_rsp():
@@ -203,29 +203,5 @@ def test_parse_rsp():
     print(DNSResponse().parse(rsp_data))
 
 
-def run_server():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(('0.0.0.0', 53))
-    while True:
-        data, addr = sock.recvfrom(4096)
-        print('got from %s', addr)
-        data = DNSResponse.make_rsp(data, 'shit\xce\xd2\xc8\xd5\x817\xa28\x817\xa29\x817\xa30\x817\xa31', addr[0])
-        print('Send to %s with %s' % (addr, len(data)))
-        sock.sendto(data, addr)
-
-
 if '__main__' == __name__:
-    run_server()
-
-
-
-
-
-
-
-
-
-
-
-
-
+    test_parse_rsp()
