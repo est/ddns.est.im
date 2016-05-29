@@ -2408,15 +2408,17 @@ CHINA_STATIONS = [
 class WeatherService(object):
     wmo_stations = dict(x[0:2] for x in CHINA_STATIONS)
 
-    def __init__(self, pinyin):
-        self.pinyin = pinyin
-        self.wmo_id = self.get_wmo_id(self.pinyin)
+    def __init__(self, pinyin_or_id):
+        if isinstance(pinyin_or_id, int):
+            self.wmo_id = pinyin_or_id
+        else:
+            self.wmo_id = self.get_wmo_id(pinyin_or_id)
 
     @classmethod
     def get_wmo_id(cls, pinyin=None):
         return cls.wmo_stations.get(pinyin)
 
-    def get_nmc_cn_city_id_url(self):
+    def build_nmc_cn_city_id_url(self):
         """
         http://www.nmc.cn/publish/sta/56294.json
         http://www.nmc.cn/f/forecast/aqi?stationcode=56294&_=1464489381532
@@ -2425,7 +2427,7 @@ class WeatherService(object):
         """
         return 'http://www.nmc.cn/publish/sta/%s.json' % self.wmo_id
 
-    def get_nmc_cn_forecast_url(self, city_id):
+    def build_nmc_cn_forecast_url(self, city_id):
         return 'http://www.nmc.cn/service/data/predict/%s.json' % city_id
 
     @classmethod
