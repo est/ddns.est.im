@@ -3,11 +3,12 @@
 from __future__ import unicode_literals
 
 """
-http://weather.noaa.gov/data/nsd_bbsss.zip
-http://weather.noaa.gov/data/nsd_bbsss.txt
+http://weather.noaa.gov/tg/site.shtml has
+ - /data/nsd_bbsss.zip
+ - /data/nsd_bbsss.txt
 """
 
-gts_stations = [
+CHINA_STATIONS = [
     ("beijing", "54511", "北京"),
     ("miyun", "54416", "密云"),
     ("mentougou", "54505", "门头沟"),
@@ -2402,3 +2403,62 @@ gts_stations = [
     ("aomen", "45011", "澳门"),
     ("taibei", "58968", "台北"),
 ]
+
+
+class WeatherService(object):
+    wmo_stations = dict(x[0:2] for x in CHINA_STATIONS)
+
+    def __init__(self, pinyin):
+        self.pinyin = pinyin
+        self.wmo_id = self.get_wmo_id(self.pinyin)
+
+    @classmethod
+    def get_wmo_id(cls, pinyin=None):
+        return cls.wmo_stations.get(pinyin)
+
+    def get_nmc_cn_city_id_url(self):
+        """
+        http://www.nmc.cn/publish/sta/56294.json
+        http://www.nmc.cn/f/forecast/aqi?stationcode=56294&_=1464489381532
+        http://www.nmc.cn/service/data/predict/101270101.json
+        http://www.nmc.cn/service/data/real/101270101.json
+        """
+        return 'http://www.nmc.cn/publish/sta/%s.json' % self.wmo_id
+
+    def get_nmc_cn_forecast_url(self, city_id):
+        return 'http://www.nmc.cn/service/data/predict/%s.json' % city_id
+
+    def get_nmc_cn_weather_symbol(self, id):
+        # translation is totally fucked up.
+        return {
+            0: 'sunny',
+            1: 'partial-cloudy',
+            2: 'cloudy',
+            3: 'sunny-rain',
+            4: 'lightning',
+            5: 'snowy',
+            6: 'sleet',
+            7: 'light-rain',
+            8: 'moderate-rain',
+            9: 'heavy-rain',
+            10: 'rainstorm',
+            11: 'heavy-rainstorm',
+            12: 'extreme-rainstorm',
+            13: 'snow-shower',
+            14: 'light-snow',
+            15: 'heavy-snow',
+            16: 'snowstorm',
+            17: 'heavy-snowtorm'
+        }.get(int(id))
+
+    def parse_nmc_cn(self, data, at='today'):
+        day = {
+            'today': 0,
+            '24h': 1,
+            '48h': 2,
+            '72h': 3
+        }.get(at)
+        if not day:
+            return
+        img_id = data['detail'][day]['day']['weather']['img']
+        return self.get_nmc_cn_weather_symbol(img_id)
