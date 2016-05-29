@@ -90,7 +90,7 @@ def run_server():
         # logging.debug('[Req] %s bytes from %s: ', len(data), addr)
         req = dns.DNSRequest.parse(req_data)
         # cname, rr_value = handler(data, addr)
-        cname, rr_value = handler(req, ('118.113.59.116', addr[1]))
+        cname, rr_value = handler(req, addr)
         rsp_data = dns.DNSResponse.make_rsp(req_data, safe_str(cname), safe_str(rr_value))
         sock.sendto(rsp_data, addr)
         logging.info(
