@@ -22,6 +22,12 @@ License:
 BSD
 
 
+Changelog:
+  
+ - 2016-05-29 v1.5 Caching with better perf.
+ - 2016-05-28 v1.0 released for first working prototype
+
+
 ToDo
 ==
 
