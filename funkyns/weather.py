@@ -2428,13 +2428,17 @@ class WeatherService(object):
     def get_nmc_cn_forecast_url(self, city_id):
         return 'http://www.nmc.cn/service/data/predict/%s.json' % city_id
 
-    def get_nmc_cn_weather_symbol(self, id):
-        # translation is totally fucked up.
+    @classmethod
+    def get_nmc_cn_weather_symbol(cls, id):
+        """
+        http://www.nmc.cn/static/site/nmc/themes/basic/weather/white/day/1.png
+        translation is totally fucked up.
+        """
         return {
             0: 'sunny',
-            1: 'partial-cloudy',
-            2: 'cloudy',
-            3: 'sunny-rain',
+            1: 'cloudy',
+            2: 'gloomy',
+            3: 'shower',
             4: 'lightning',
             5: 'snowy',
             6: 'sleet',
@@ -2451,14 +2455,26 @@ class WeatherService(object):
             17: 'heavy-snowtorm'
         }.get(int(id))
 
-    def parse_nmc_cn(self, data, at='today'):
+    @classmethod
+    def parse_nmc_cn(cls, data, at='today'):
         day = {
             'today': 0,
             '24h': 1,
             '48h': 2,
             '72h': 3
         }.get(at)
-        if not day:
+        if day is None:
             return
         img_id = data['detail'][day]['day']['weather']['img']
-        return self.get_nmc_cn_weather_symbol(img_id)
+        return cls.get_nmc_cn_weather_symbol(img_id)
+
+
+def test():
+    import json
+    r = WeatherService.parse_nmc_cn(
+        json.load(open('101270101.json')),
+    )
+    print r
+
+if '__main__' == __name__:
+    test()
