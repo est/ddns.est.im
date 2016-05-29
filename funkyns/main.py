@@ -23,6 +23,14 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S')
 
 
+def gethostname():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # doesn't even have to be reachable
+    s.connect(('10.255.255.255', 65535))
+    return s.getsockname()[0]
+HOST_IP = gethostname()
+
+
 class GeoWeather(object):
     geoip = IPData('17monipdb.dat')
     station_ids = dict((x[2], (x)) for x in CHINA_STATIONS)
@@ -62,7 +70,7 @@ def handler(req, addr):
     if req.name.count('.') > 3:
         # like 'foo.bar.tempo.est.im'
         return req.respond(RR(
-            12, socket.inet_aton(addr[0])))
+            12, socket.inet_aton(HOST_IP)))
     m = re.search(r'^(\w+)\.(?:tempo|weather|tq|tianqi)\.est\.im\.?$',
                   req.name)
     if m:
@@ -74,7 +82,7 @@ def handler(req, addr):
         pinyin, station_id, name = GeoWeather.get_station_by_ip(addr[0])
         if not station_id:
             return req.respond(None)
-        logging.debug('ip: %s, station: %s', addr[0], station_id)
+        logging.debug('Found ip: %s, station: %s', addr[0], station_id)
         svc = WeatherService(station_id)
 
     condition = get_weather_condition(svc.station_id)
@@ -84,13 +92,13 @@ def handler(req, addr):
         RR(
             12, status, DNSUtil.QTYPE_CNAME
         ), RR(
-            status, addr[0])])
+            status, HOST_IP)])
 
 
 def run_server():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('0.0.0.0', 53))
-    logging.info('[Server] start...')
+    logging.info('[Server] start at %s:%s', *sock.getsockname())
     while True:
         req_data, addr = sock.recvfrom(4096)
         t0 = time.time()
