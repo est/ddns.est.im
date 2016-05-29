@@ -1,5 +1,7 @@
 # coding: utf8
 
+# http://code.activestate.com/recipes/325905-memoize-decorator-with-timeout/
+
 import time
 
 

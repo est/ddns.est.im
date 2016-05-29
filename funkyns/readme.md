@@ -4,7 +4,8 @@ Funky Name Server
 
 Use DNS to provide weather (and others) lookup.
 
-Usage: 
+Usage
+==
     
     ping beijing.tempo.est.im
 
@@ -12,28 +13,30 @@ or
 
     nslookup beijing tempo.est.im
 
-By default, before evening (18:00 PM) at local time, it will return today's weather forcast.
+_tempo_ means weather in Italian.
 
-Other wise it will return tomorrow 24h forecast.
 
-To get 48h or 72h forecast:
+License:
+==
 
-    ping beijing.48h.tempo.est.im
+BSD
 
 
 ToDo
 ==
 
-[ ] Phone prefix
-[ ] Airport code
-[ ] 48h or 72h format
+ - [ ] Phone prefix
+ - [ ] Airport code
+ - [ ] 48h or 72h format `ping beijing.48h.tempo.est.im`
 
-[ ] PM2.5, maybe aqicn.org or embassy stats
+ - [ ] PM2.5, maybe aqicn.org or embassy stats
 
-ver.est.im
 
-[ ] Android or iOS version detector lol
+Ideas
+==
 
-dl.est.im
+ - ver.est.im
+  - [ ] Android or iOS version detector lol
 
-[ ] lookup by TXT to grab download URL.
+ - dl.est.im
+  - [ ] lookup by TXT to grab download URL.
