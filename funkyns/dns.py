@@ -7,7 +7,6 @@ from __future__ import absolute_import, division, print_function, \
 import os
 import struct
 import socket
-import logging
 
 
 class DNSUtil(object):
@@ -130,6 +129,8 @@ class DNSRequest(object):
         l, name = DNSUtil.parse_name(data, 12)
         offset = l + 12
         qtype, qclass = struct.unpack('!HH', data[offset:offset + 4])
+        # clean shit up
+        name = '.'.join(x for x in name.split('.') if x)
         obj = cls(name, qtype)
         obj.data = data
         obj.req_id_bytes = r[0]
@@ -150,8 +151,65 @@ class DNSRequest(object):
     def data(self, value):
         self._data = value
 
+    def respond(self, rr_answers, rr_authority=None, rr_additional=None):
+        if not rr_answers:
+            flag = 0x8183  # NXDOMAIN
+            rr_answers = []
+        else:
+            flag = 0x8180  # flag for standard response
+        if isinstance(rr_answers, RR):
+            rr_answers = [rr_answers]
+        if isinstance(rr_answers, RR):
+            rr_authority = [rr_authority]
+        if rr_authority is None:
+            rr_authority = []
+        if isinstance(rr_additional, RR):
+            rr_additional = [rr_additional]
+        if rr_additional is None:
+            rr_additional = []
+
+        rsp = bytearray(self.data)
+        rsp[2:12] = struct.pack(
+            '!H2sHHH',
+            flag,
+            self.data[4:6],  # num questions
+            len(rr_answers),
+            len(rr_authority),
+            len(rr_additional)
+        )
+        for answer in rr_answers + rr_authority + rr_additional:
+            rsp.append(answer)
+        return rsp
+
     def __repr__(self):
         return '<DNSRequest: %s>' % self.name
+
+
+class RR(object):
+    """a DNS record"""
+    def __init__(self, name_or_offset, rdata, qtype=None, ttl=60):
+        if isinstance(name_or_offset, int):
+            # 0xC00C, leading 11 means compression, points to offset 12
+            self.name = int('11000000', 2) << 8 | int(name_or_offset)
+            self.fmt = '!HHHIH%ss' % len(rdata)
+        elif isinstance(name_or_offset, str):
+            self.name = DNSUtil.build_address(name_or_offset)
+            self.fmt = '!%ssHHIH%ss' % (len(self.name), len(rdata))
+
+        self.rdata = rdata
+        self.qtype = qtype or DNSUtil.QTYPE_A
+        self.ttl = ttl
+
+    def __str__(self):
+        return struct.pack(
+            self.fmt,
+            self.name,
+            self.qtype,
+            DNSUtil.QCLASS_IN,
+            self.ttl,  # ttl
+            len(self.rdata),
+            self.rdata
+        )
 
 
 class DNSResponse(object):
@@ -185,41 +243,6 @@ class DNSResponse(object):
             l, r = DNSUtil.parse_record(data, offset)
             offset += l
         return answers
-
-    @classmethod
-    def make_rr(cls, name_or_offset, rdata, qtype=DNSUtil.QTYPE_A, ttl=60):
-        if isinstance(name_or_offset, int):
-            # 0xC00C, leading 11 means compression, points to offset 12
-            name = int('11000000', 2) << 8 | int(name_or_offset)
-            fmt = '!HHHIH%ss' % len(rdata)
-        elif isinstance(name_or_offset, str):
-            name = DNSUtil.build_address(name_or_offset)
-            fmt = '!%ssHHIH%ss' % (len(name), len(rdata))
-        else:
-            return ''
-        return struct.pack(
-            fmt,
-            name,
-            qtype,
-            DNSUtil.QCLASS_IN,
-            ttl,  # ttl
-            len(rdata),
-            rdata
-        )
-
-    @classmethod
-    def make_rsp(cls, req_data=None, cname_text='', ip=''):
-        rsp = bytearray(req_data)
-        rsp[2:8] = struct.pack(
-            '!H2sH',
-            0x8180,  # flag for standard response
-            req_data[4:6],
-            2,  # two answers. One for CNAME one for A record.
-        )
-        return ''.join([
-            str(rsp),
-            cls.make_rr(12, DNSUtil.build_address(cname_text), DNSUtil.QTYPE_CNAME),
-            cls.make_rr(cname_text, socket.inet_aton(ip))])
 
 
 def test_parse_rsp():
