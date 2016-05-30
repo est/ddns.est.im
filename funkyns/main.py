@@ -41,8 +41,9 @@ class GeoWeather(object):
         logging.debug('get_station_id_by_ip geoip.find(): %s', u','.join(r))
         if len(r) == 3:
             ret = cls.station_ids.get(r[2])
-            logging.debug('get_station_id_by_ip: %s, %s, %s', *ret)
-            return ret[0], int(ret[1]), ret[2]
+            if ret:
+                logging.debug('get_station_id_by_ip: %s, %s, %s', *ret)
+                return ret[0], int(ret[1]), ret[2]
         return (None, None, None)
 
 
