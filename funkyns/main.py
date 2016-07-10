@@ -87,7 +87,7 @@ def handler(req, addr):
         svc = WeatherService(station_id)
 
     condition = get_weather_condition(svc.station_id)
-    status = '%s.%s.tempo.est.im' % (condition, pinyin)
+    status = '%s.%s.attr.date' % (condition, pinyin)
 
     return req.respond([
         RR(
