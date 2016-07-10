@@ -71,7 +71,7 @@ def handler(req, addr):
     if req.name.count('.') > 3:
         # like 'foo.bar.tempo.est.im'
         return req.respond(RR(
-            12, socket.inet_aton(HOST_IP)))
+            RR.QUERY_OFFSET, socket.inet_aton(HOST_IP)))
     m = re.search(r'^(\w+)\.(?:tempo|weather|tq|tianqi)\.est\.im\.?$',
                   req.name)
     if m:
@@ -91,7 +91,7 @@ def handler(req, addr):
 
     return req.respond([
         RR(
-            12, status, DNSUtil.QTYPE_CNAME
+            RR.QUERY_OFFSET, status, DNSUtil.QTYPE_CNAME
         ), RR(
             status, HOST_IP)])
 
