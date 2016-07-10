@@ -201,6 +201,9 @@ class DNSRequest(object):
 
 class RR(object):
     """a DNS record"""
+    QUERY_OFFSET = 12
+
+
     def __init__(self, name_or_offset, rdata, qtype=DNSUtil.QTYPE_A, ttl=60):
         if qtype in (2, 5, 12, 15):
             # @FixMe: hardcoded shit

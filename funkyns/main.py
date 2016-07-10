@@ -96,6 +96,14 @@ def handler(req, addr):
             status, HOST_IP)])
 
 
+def txt_handler(req, addr):
+    """
+    receive: data
+    return: cname, rr_value
+    """
+    return req.respond([RR(RR.QUERY_OFFSET, '\x04test', 16 )])
+
+
 def run_server():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('0.0.0.0', 53))
@@ -104,7 +112,7 @@ def run_server():
         req_data, addr = sock.recvfrom(4096)
         t0 = time.time()
         req = DNSRequest.parse(req_data)
-        rsp_data = handler(req, addr)
+        rsp_data = txt_handler(req, addr)
         sock.sendto(rsp_data, addr)
         logging.info(
             '[Query] %s:%s %sB->%sB in %03dms. [Ask]: %s of %s',
