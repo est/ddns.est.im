@@ -89,11 +89,11 @@ def handler(req, addr):
     condition = get_weather_condition(svc.station_id)
     status = '%s.%s.attr.date' % (condition, pinyin)
 
-    return req.respond([
-        RR(
-            RR.QUERY_OFFSET, status, DNSUtil.QTYPE_CNAME
-        ), RR(
-            status, HOST_IP)])
+    rsp_rcd = [RR(
+        RR.QUERY_OFFSET, status, DNSUtil.QTYPE_CNAME
+    ), RR(
+        status, HOST_IP)]
+    return req.respond(rsp_rcd, rsp_rcd)
 
 
 def txt_handler(req, addr):
@@ -112,7 +112,7 @@ def run_server():
         req_data, addr = sock.recvfrom(4096)
         t0 = time.time()
         req = DNSRequest.parse(req_data)
-        rsp_data = txt_handler(req, addr)
+        rsp_data = handler(req, addr)
         sock.sendto(rsp_data, addr)
         logging.info(
             '[Query] %s:%s %sB->%sB in %03dms. [Ask]: %s of %s',
