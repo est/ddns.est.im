@@ -138,10 +138,12 @@ class DNSRequest(object):
         r = struct.unpack('!2sH4H', data[:12])
         l, name = DNSUtil.parse_name(data, 12)
         offset = l + 12
-        qtype, qclass = struct.unpack('!HH', data[offset:offset + 4])
+        q_end_offset = offset + 4
+        qtype, qclass = struct.unpack('!HH', data[offset:q_end_offset])
         # clean shit up
         name = '.'.join(x for x in name.split('.') if x)
         obj = cls(name, qtype)
+        obj.offset = q_end_offset
         obj.data = data
         obj.req_id_bytes = r[0]
         obj.flag = r[1]
@@ -183,7 +185,7 @@ class DNSRequest(object):
         if not isinstance(rr_additional, (list, tuple)):
             rr_additional = [rr_additional]
 
-        rsp = bytearray(self.data)
+        rsp = bytearray(self.data[:self.offset])
         rsp[2:12] = struct.pack(
             '!H2sHHH',
             flag,
@@ -192,6 +194,8 @@ class DNSRequest(object):
             len(rr_authority),
             len(rr_additional)
         )
+        # do not append, in case there's more than one question
+        # especially for EDNS0 with a additional RR query for type OPT
         return rsp + ''.join(
             str(x) for x in rr_answers + rr_authority + rr_additional)
 
