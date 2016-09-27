@@ -72,6 +72,17 @@ def handler(req, addr):
         # like 'foo.bar.tempo.est.im'
         return req.respond(RR(
             RR.QUERY_OFFSET, socket.inet_aton(HOST_IP)))
+
+    # 反向解析 PTR
+    m = re.search(r'(\d+\.\d+\.\d+\.\d+)\.in-addr.arpa', req.name)
+    if m:
+        ip = m.group(1).split('.')
+        ip.reverse()
+        pinyin, station_id, name = GeoWeather.get_station_by_ip(ip)
+        return req.respond(RR(
+            RR.QUERY_OFFSET, '%s.tempo.est.im' % pinyin, DNSUtil.QTYPE_PTR))
+
+    # 天气查询
     m = re.search(r'^(\w+)\.(?:tempo|weather|tq|tianqi)\.est\.im\.?$',
                   req.name)
     if m:
@@ -101,7 +112,7 @@ def txt_handler(req, addr):
     receive: data
     return: cname, rr_value
     """
-    return req.respond([RR(RR.QUERY_OFFSET, '\x04test', 16 )])
+    return req.respond([RR(RR.QUERY_OFFSET, '\x04test', 16)])
 
 
 def run_server():

@@ -31,6 +31,7 @@ class DNSUtil(object):
     QTYPE_AAAA = 28
     QTYPE_CNAME = 5
     QTYPE_NS = 2
+    QTYPE_PTR = 12
 
     QCLASS_IN = 1
 
